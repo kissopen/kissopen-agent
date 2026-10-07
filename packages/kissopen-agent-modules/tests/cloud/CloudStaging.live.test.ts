@@ -14,7 +14,11 @@ import { DurableFunctionsModule } from "../../sources/durableFunctions/index.js"
 import { moduleDatabase, type ModuleDatabase } from "../support/moduleDatabase.js";
 import { resolveModuleHooks } from "../support/moduleHooks.js";
 
-const WORKOS_CLIENT_ID = "client_01KZD3XE4EW1AF1P6WTFHBPR4J";
+// The staging deployment comes from the same variables the daemon reads; the test runs only when
+// they and the WorkOS staging credentials are all present.
+const WORKOS_CLIENT_ID = process.env.KISSOPEN_CLOUD_STAGING_WORKOS_CLIENT_ID ?? "";
+const STAGING_CONFIGURED =
+    WORKOS_CLIENT_ID.length > 0 && (process.env.KISSOPEN_CLOUD_STAGING_URL ?? "").length > 0;
 const REQUEST_TIMEOUT_MILLISECONDS = 20_000;
 const LIVE_TEST_TIMEOUT_MILLISECONDS = 180_000;
 const DEFAULT_CREDENTIALS_FILE = fileURLToPath(
@@ -96,108 +100,116 @@ async function openCloudInstance(authentication: CloudAuthentication): Promise<L
     }
 }
 
-describe.runIf(credentials !== undefined)("KISSOPEN Agent Cloud staging lifecycle", () => {
-    test(
-        "refreshes a verified WorkOS session, manages its organization, and signs out locally",
-        async () => {
-            const workos = new WorkOS({
-                apiKey: credentials!.workosApiKey,
-                clientId: WORKOS_CLIENT_ID,
-                maxRetries: 0,
-                timeout: REQUEST_TIMEOUT_MILLISECONDS,
-            });
-            const email = `ha-${crypto.randomUUID()}@cloud-e2e.test`;
-            const password = `KISSOPEN-Agent-${crypto.randomUUID()}-Aa1!`;
-            const user = await workos.userManagement.createUser({
-                email,
-                emailVerified: true,
-                firstName: "KISSOPEN Agent staging",
-                password,
-            });
-            let instance: LiveCloudInstance | undefined;
-            let organizationId: string | undefined;
-            try {
-                const authenticated = await workos.userManagement.authenticateWithPassword({
+describe.runIf(credentials !== undefined && STAGING_CONFIGURED)(
+    "KISSOPEN Agent Cloud staging lifecycle",
+    () => {
+        test(
+            "refreshes a verified WorkOS session, manages its organization, and signs out locally",
+            async () => {
+                const workos = new WorkOS({
+                    apiKey: credentials!.workosApiKey,
                     clientId: WORKOS_CLIENT_ID,
+                    maxRetries: 0,
+                    timeout: REQUEST_TIMEOUT_MILLISECONDS,
+                });
+                const email = `ha-${crypto.randomUUID()}@cloud-e2e.test`;
+                const password = `KISSOPEN-Agent-${crypto.randomUUID()}-Aa1!`;
+                const user = await workos.userManagement.createUser({
                     email,
+                    emailVerified: true,
+                    firstName: "KISSOPEN Agent staging",
                     password,
                 });
-                instance = await openCloudInstance({
-                    accessToken: authenticated.accessToken,
-                    refreshToken: authenticated.refreshToken,
-                    user: {
-                        email: authenticated.user.email,
-                        firstName: authenticated.user.firstName ?? null,
-                        id: authenticated.user.id,
-                        lastName: authenticated.user.lastName ?? null,
-                    },
-                });
-                const { cloud, database } = instance;
-                const ctx = database.context;
-                const minted = await cloud.mint(ctx);
-                expect(minted.accessToken.length > 0).toBe(true);
-                expect(minted.cloud).toMatchObject({
-                    environment: "staging",
-                    status: "connected",
-                    user: { email, id: user.id },
-                });
-                await expect(cloud.getWorkOSState(ctx)).resolves.toEqual({
-                    workosClientId: WORKOS_CLIENT_ID,
-                    workosUserId: user.id,
-                });
-
-                const organization = await cloud.createOrganization(
-                    ctx,
-                    `KISSOPEN Agent staging ${crypto.randomUUID()}`,
-                );
-                organizationId = organization.id;
-                expect((await cloud.listOrganizations(ctx)).organizations).toContainEqual(
-                    organization,
-                );
-                const endpoint = "https://team.example/agent";
-                await expect(cloud.setTeamEndpoint(ctx, organization.id, endpoint)).resolves.toBe(
-                    endpoint,
-                );
-                expect(await cloud.listTeams(ctx)).toContainEqual({ ...organization, endpoint });
-                const organizationToken = await cloud.mintForOrganization(ctx, organization.id);
-                expect(organizationToken.length > 0).toBe(true);
-                expect(cloud.status(ctx).user?.id).toBe(user.id);
-
-                await cloud.deleteOrganization(ctx, organization.id);
-                organizationId = undefined;
-                expect((await cloud.listOrganizations(ctx)).organizations).not.toContainEqual(
-                    organization,
-                );
-                const disconnected = await cloud.disconnect(ctx);
-                expect(disconnected).toMatchObject({
-                    authorization: null,
-                    environment: null,
-                    error: null,
-                    status: "disconnected",
-                    user: null,
-                });
-                expect((await createCloudDatabase().read(ctx))?.session).toBeNull();
-                await expect(cloud.mint(ctx)).rejects.toMatchObject({
-                    code: "cloud_not_authenticated",
-                });
-                expect(JSON.stringify(cloud.status(ctx)).includes(minted.accessToken)).toBe(false);
-                expect(JSON.stringify(cloud.status(ctx)).includes(authenticated.refreshToken)).toBe(
-                    false,
-                );
-            } finally {
+                let instance: LiveCloudInstance | undefined;
+                let organizationId: string | undefined;
                 try {
-                    await instance?.stop();
+                    const authenticated = await workos.userManagement.authenticateWithPassword({
+                        clientId: WORKOS_CLIENT_ID,
+                        email,
+                        password,
+                    });
+                    instance = await openCloudInstance({
+                        accessToken: authenticated.accessToken,
+                        refreshToken: authenticated.refreshToken,
+                        user: {
+                            email: authenticated.user.email,
+                            firstName: authenticated.user.firstName ?? null,
+                            id: authenticated.user.id,
+                            lastName: authenticated.user.lastName ?? null,
+                        },
+                    });
+                    const { cloud, database } = instance;
+                    const ctx = database.context;
+                    const minted = await cloud.mint(ctx);
+                    expect(minted.accessToken.length > 0).toBe(true);
+                    expect(minted.cloud).toMatchObject({
+                        environment: "staging",
+                        status: "connected",
+                        user: { email, id: user.id },
+                    });
+                    await expect(cloud.getWorkOSState(ctx)).resolves.toEqual({
+                        workosClientId: WORKOS_CLIENT_ID,
+                        workosUserId: user.id,
+                    });
+
+                    const organization = await cloud.createOrganization(
+                        ctx,
+                        `KISSOPEN Agent staging ${crypto.randomUUID()}`,
+                    );
+                    organizationId = organization.id;
+                    expect((await cloud.listOrganizations(ctx)).organizations).toContainEqual(
+                        organization,
+                    );
+                    const endpoint = "https://team.example/agent";
+                    await expect(
+                        cloud.setTeamEndpoint(ctx, organization.id, endpoint),
+                    ).resolves.toBe(endpoint);
+                    expect(await cloud.listTeams(ctx)).toContainEqual({
+                        ...organization,
+                        endpoint,
+                    });
+                    const organizationToken = await cloud.mintForOrganization(ctx, organization.id);
+                    expect(organizationToken.length > 0).toBe(true);
+                    expect(cloud.status(ctx).user?.id).toBe(user.id);
+
+                    await cloud.deleteOrganization(ctx, organization.id);
+                    organizationId = undefined;
+                    expect((await cloud.listOrganizations(ctx)).organizations).not.toContainEqual(
+                        organization,
+                    );
+                    const disconnected = await cloud.disconnect(ctx);
+                    expect(disconnected).toMatchObject({
+                        authorization: null,
+                        environment: null,
+                        error: null,
+                        status: "disconnected",
+                        user: null,
+                    });
+                    expect((await createCloudDatabase().read(ctx))?.session).toBeNull();
+                    await expect(cloud.mint(ctx)).rejects.toMatchObject({
+                        code: "cloud_not_authenticated",
+                    });
+                    expect(JSON.stringify(cloud.status(ctx)).includes(minted.accessToken)).toBe(
+                        false,
+                    );
+                    expect(
+                        JSON.stringify(cloud.status(ctx)).includes(authenticated.refreshToken),
+                    ).toBe(false);
                 } finally {
                     try {
-                        if (organizationId !== undefined) {
-                            await workos.organizations.deleteOrganization(organizationId);
-                        }
+                        await instance?.stop();
                     } finally {
-                        await workos.userManagement.deleteUser(user.id);
+                        try {
+                            if (organizationId !== undefined) {
+                                await workos.organizations.deleteOrganization(organizationId);
+                            }
+                        } finally {
+                            await workos.userManagement.deleteUser(user.id);
+                        }
                     }
                 }
-            }
-        },
-        LIVE_TEST_TIMEOUT_MILLISECONDS,
-    );
-});
+            },
+            LIVE_TEST_TIMEOUT_MILLISECONDS,
+        );
+    },
+);

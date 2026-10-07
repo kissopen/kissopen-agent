@@ -51,6 +51,7 @@ it("isolates team drafts, timestamps, bootstrap, event pulls and streams, and re
             "enabled = true",
             'host = "127.0.0.1"',
             "port = 0",
+            'workos_client_id = "client_01TESTPRODUCTION"',
             'workos_organization_id = "org_drafts"',
             'owner_workos_user_id = "user_alice"',
         ].join("\n"),
@@ -63,7 +64,7 @@ it("isolates team drafts, timestamps, bootstrap, event pulls and streams, and re
             ? Promise.resolve(Response.json({ keys: [jwk] }))
             : nativeFetch(input, init),
     );
-    const clientId = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+    const clientId = "client_01TESTPRODUCTION";
     const token = (subject: string) =>
         new SignJWT({ client_id: clientId, org_id: "org_drafts", sid: "session_drafts" })
             .setProtectedHeader({ alg: "RS256", kid: "drafts" })

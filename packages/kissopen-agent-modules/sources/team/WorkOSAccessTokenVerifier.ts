@@ -3,12 +3,8 @@ import { Value } from "@sinclair/typebox/value";
 
 import { workOSUserIdSchema } from "./TeamUser.js";
 
-export const KISSOPEN_CLOUD_PRODUCTION_WORKOS_CLIENT_ID = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
-export const KISSOPEN_CLOUD_PRODUCTION_WORKOS_ISSUER = `https://api.workos.com/user_management/${KISSOPEN_CLOUD_PRODUCTION_WORKOS_CLIENT_ID}`;
-export const KISSOPEN_CLOUD_PRODUCTION_WORKOS_JWKS_URL = `https://api.workos.com/sso/jwks/${KISSOPEN_CLOUD_PRODUCTION_WORKOS_CLIENT_ID}`;
-
 export interface WorkOSAccessTokenVerifierOptions {
-    readonly clientId?: string;
+    readonly clientId: string;
     readonly issuer?: string;
     readonly jwks?: JWTVerifyGetKey;
     readonly organizationId: string;
@@ -27,7 +23,7 @@ export class WorkOSAccessTokenVerifier {
     readonly #organizationId: string;
 
     constructor(options: WorkOSAccessTokenVerifierOptions) {
-        this.#clientId = options.clientId ?? KISSOPEN_CLOUD_PRODUCTION_WORKOS_CLIENT_ID;
+        this.#clientId = options.clientId;
         this.#issuer =
             options.issuer ??
             `https://api.workos.com/user_management/${encodeURIComponent(this.#clientId)}`;

@@ -115,3 +115,13 @@
   quota when Kissopen Cloud provides only the team list.
 - Reject every organization route in team mode before parsing bodies, refreshing credentials, or
   contacting Kissopen Cloud. Keep this deployment policy at the API seam, outside CloudModule.
+
+## No hosted deployment is built in
+
+- KissOpen operates no hosted Cloud, and the open-source agent must not authenticate against an
+  upstream product's Cloud or WorkOS tenant. The production and staging deployments therefore come
+  only from `KISSOPEN_CLOUD_URL`/`KISSOPEN_CLOUD_WORKOS_CLIENT_ID` and their `_STAGING_`
+  counterparts. A deployment without both values raises `CloudNotConfiguredError`, which the module
+  reports as `cloud_unavailable` naming the missing variables, before any WorkOS request.
+- Team mode likewise has no default WorkOS client: `[feature.team] workos_client_id` is required
+  alongside the organization and owner, and `API.md` states the same contract.

@@ -67,6 +67,7 @@ describe("personal mobile pairing through the team HTTP API", () => {
                 "enabled = true",
                 'host = "127.0.0.1"',
                 "port = 0",
+                'workos_client_id = "client_01TESTPRODUCTION"',
                 'workos_organization_id = "org_mobile"',
                 'owner_workos_user_id = "user_alice"',
             ].join("\n"),
@@ -86,7 +87,7 @@ describe("personal mobile pairing through the team HTTP API", () => {
                 ? Promise.resolve(Response.json({ keys: [jwk] }))
                 : nativeFetch(input, init),
         );
-        const clientId = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+        const clientId = "client_01TESTPRODUCTION";
         const token = (subject: string) =>
             new SignJWT({ client_id: clientId, org_id: "org_mobile", sid: "mobile" })
                 .setProtectedHeader({ alg: "RS256", kid: "mobile" })

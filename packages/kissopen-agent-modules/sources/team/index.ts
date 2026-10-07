@@ -35,9 +35,6 @@ export {
     type UpdateTeamProfileInput,
 } from "./TeamUser.js";
 export {
-    KISSOPEN_CLOUD_PRODUCTION_WORKOS_CLIENT_ID,
-    KISSOPEN_CLOUD_PRODUCTION_WORKOS_ISSUER,
-    KISSOPEN_CLOUD_PRODUCTION_WORKOS_JWKS_URL,
     WorkOSAccessTokenVerifier,
     type WorkOSIdentity,
     type WorkOSAccessTokenVerifierOptions,

@@ -68,7 +68,7 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 # enabled = false
 # host = "0.0.0.0"
 # port = 3000
-# workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"
+# workos_client_id = "client_01EXAMPLE"
 # workos_organization_id = "org_01EXAMPLE"
 # owner_workos_user_id = "user_01EXAMPLE"
 

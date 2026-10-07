@@ -128,25 +128,24 @@ Configure it only in the user-wide `kissopen.toml`:
 enabled = true
 host = "0.0.0.0"
 port = 3000
-workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"
+workos_client_id = "client_01EXAMPLE"
 workos_organization_id = "org_01EXAMPLE"
 owner_workos_user_id = "user_01EXAMPLE"
 ```
 
 On a standalone Kissopen Agent connected to the intended owner's Kissopen Cloud account, ask an active
 admin bot to call `get_kissopen_workos_state`. Copy its `workos_client_id` and `workos_user_id` into
-`workos_client_id` and `owner_workos_user_id` respectively. Although the client setting defaults to
-Kissopen Cloud production, configure the reported value explicitly so the deployment does not infer
-which WorkOS project authenticated the owner.
+`workos_client_id` and `owner_workos_user_id` respectively. There is no default client, so the
+deployment never infers which WorkOS project authenticated the owner.
 
-| Setting                  | Default                               | Meaning                                                                                 |
-| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------------------- |
-| `enabled`                | `false`                               | Selects team deployment mode.                                                           |
-| `host`                   | `"0.0.0.0"`                           | TCP interface for the HTTP listener.                                                    |
-| `port`                   | `3000`                                | TCP port; `0` asks the operating system to choose an ephemeral port.                    |
-| `workos_client_id`       | `"client_01KZD3XE9YAFAMT0P8TD4HP73E"` | WorkOS client whose issuer and JWKS authenticate access tokens.                         |
-| `workos_organization_id` | required when enabled                 | Exact `org_id` claim required in every accepted token.                                  |
-| `owner_workos_user_id`   | required when enabled                 | WorkOS identity whose user receives the owner flag when their profile is first created. |
+| Setting                  | Default               | Meaning                                                                                 |
+| ------------------------ | --------------------- | --------------------------------------------------------------------------------------- |
+| `enabled`                | `false`               | Selects team deployment mode.                                                           |
+| `host`                   | `"0.0.0.0"`           | TCP interface for the HTTP listener.                                                    |
+| `port`                   | `3000`                | TCP port; `0` asks the operating system to choose an ephemeral port.                    |
+| `workos_client_id`       | required when enabled | WorkOS client whose issuer and JWKS authenticate access tokens.                         |
+| `workos_organization_id` | required when enabled | Exact `org_id` claim required in every accepted token.                                  |
+| `owner_workos_user_id`   | required when enabled | WorkOS identity whose user receives the owner flag when their profile is first created. |
 
 The daemon verifies RS256 signatures and required WorkOS claims locally after retrieving and
 caching that client's JWKS. A token must match both the configured client and organization. Every

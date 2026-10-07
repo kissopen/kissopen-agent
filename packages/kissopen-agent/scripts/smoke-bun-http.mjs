@@ -26,13 +26,14 @@ async function main() {
                 "enabled = true",
                 'host = "127.0.0.1"',
                 "port = 0",
+                'workos_client_id = "client_01TESTPRODUCTION"',
                 'workos_organization_id = "org_keepalive"',
                 'owner_workos_user_id = "user_keepalive"',
             ].join("\n"),
         );
         const { publicKey, privateKey } = await generateKeyPair("RS256");
         const jwk = { ...(await exportJWK(publicKey)), kid: "keepalive", alg: "RS256", use: "sig" };
-        const clientId = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+        const clientId = "client_01TESTPRODUCTION";
         const token = await new SignJWT({
             client_id: clientId,
             org_id: "org_keepalive",

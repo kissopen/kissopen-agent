@@ -67,6 +67,7 @@ import {
     CloudOrganizationForbiddenError,
     CloudOrganizationInvalidEndpointError,
     CloudOrganizationInvalidRequestError,
+    CloudNotConfiguredError,
     CloudServiceUnavailableError,
     CloudWorkOS,
     type CloudAuthentication,
@@ -1244,7 +1245,12 @@ export class CloudModule implements AgentModule {
     #client(environment: CloudEnvironment): CloudWorkOS {
         let client = this.#clients.get(environment);
         if (client === undefined) {
-            client = new CloudWorkOS(environment);
+            try {
+                client = new CloudWorkOS(environment);
+            } catch (error) {
+                if (!(error instanceof CloudNotConfiguredError)) throw error;
+                throw this.#error(503, "cloud_unavailable", error.message);
+            }
             this.#clients.set(environment, client);
         }
         return client;

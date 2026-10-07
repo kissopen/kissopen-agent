@@ -7,6 +7,9 @@ import {
     CloudWorkOS,
 } from "../../sources/cloud/CloudWorkOS.js";
 import { normalizeKissopenTeamInvitationEmail } from "../../sources/cloud/KissopenTeamInvitation.js";
+import { stubCloudDeployments } from "./stubCloudDeployments.js";
+
+stubCloudDeployments();
 
 const invitation = {
     acceptedAt: null,
@@ -37,7 +40,7 @@ describe("KISSOPEN Cloud invitations", () => {
         expect(request).toHaveBeenCalledOnce();
         const [url, init] = request.mock.calls[0]!;
         expect(String(url)).toBe(
-            "https://kissopen-cloud-staging.bulka-llc.workers.dev/v0/organizations/org_team/invitations",
+            "https://cloud-staging.example.test/v0/organizations/org_team/invitations",
         );
         expect(init?.method).toBe("POST");
         expect(init?.body).toBe(JSON.stringify({ email: "person@example.com" }));

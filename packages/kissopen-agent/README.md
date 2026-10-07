@@ -142,9 +142,9 @@ bearer token, and it does not start the socket-dependent macOS menu bar app. Run
 foreground with `kissopen-agent run` under the deployment's process supervisor; local commands and
 clients that start and connect to the private socket are intentionally unavailable. The daemon
 instead listens on `host` and `port` from `[feature.team]` (default `0.0.0.0:3000`) and accepts
-production Kissopen Cloud WorkOS access tokens for members of the configured organization. Set
-`workos_client_id` in the same section to authenticate against another WorkOS project. Team mode
-also requires `workos_organization_id` and `owner_workos_user_id`; the matching owner receives the
+WorkOS access tokens issued by the configured `workos_client_id` for members of the configured
+organization. Team mode requires `workos_client_id`, `workos_organization_id` and
+`owner_workos_user_id`; the matching owner receives the
 owner flag during profile onboarding.
 
 Before deploying a team server, a standalone Kissopen Agent connected to Kissopen Cloud can use

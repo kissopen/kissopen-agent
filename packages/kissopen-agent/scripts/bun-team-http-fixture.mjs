@@ -3,7 +3,7 @@ import { startKissopenAgentDaemon } from "../dist/index.js";
 /** Test-owned WorkOS public key; signature and claim verification remain real. */
 async function main() {
     const jwks = JSON.parse(process.env.KISSOPEN_SMOKE_JWKS);
-    const jwksUrl = "https://api.workos.com/sso/jwks/client_01KZD3XE9YAFAMT0P8TD4HP73E";
+    const jwksUrl = "https://api.workos.com/sso/jwks/client_01TESTPRODUCTION";
     globalThis.fetch = async (input) => {
         const url = input instanceof Request ? input.url : String(input);
         if (url === jwksUrl) return Response.json(jwks);

@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { startKissopenAgentDaemon, type KissopenAgentDaemon } from "../sources/main.js";
 
 const temporaryDirectories: string[] = [];
-const CLIENT_ID = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+const CLIENT_ID = "client_01TESTPRODUCTION";
 const ORGANIZATION_ID = "org_test123";
 const OWNER_WORKOS_USER_ID = "user_owner123";
 const MEMBER_WORKOS_USER_ID = "user_member456";
@@ -51,6 +51,7 @@ describe("team mode daemon", () => {
                     "enabled = true",
                     'host = "127.0.0.1"',
                     "port = 0",
+                    `workos_client_id = "${CLIENT_ID}"`,
                     `workos_organization_id = "${ORGANIZATION_ID}"`,
                     `owner_workos_user_id = "${OWNER_WORKOS_USER_ID}"`,
                 ].join("\n"),
@@ -188,6 +189,7 @@ describe("team mode daemon", () => {
                     "enabled = true",
                     'host = "127.0.0.1"',
                     "port = 0",
+                    `workos_client_id = "${CLIENT_ID}"`,
                     `workos_organization_id = "${ORGANIZATION_ID}"`,
                     `owner_workos_user_id = "${OWNER_WORKOS_USER_ID}"`,
                 ].join("\n"),
@@ -251,6 +253,7 @@ describe("team mode daemon", () => {
                 "enabled = true",
                 'host = "127.0.0.1"',
                 "port = 0",
+                `workos_client_id = "${CLIENT_ID}"`,
                 `workos_organization_id = "${ORGANIZATION_ID}"`,
                 `owner_workos_user_id = "${OWNER_WORKOS_USER_ID}"`,
             ].join("\n"),

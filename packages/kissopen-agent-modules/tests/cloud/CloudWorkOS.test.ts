@@ -6,9 +6,13 @@ import {
     CloudOrganizationForbiddenError,
     CloudOrganizationInvalidEndpointError,
     CloudOrganizationInvalidRequestError,
+    CloudNotConfiguredError,
     CloudServiceUnavailableError,
     CloudWorkOS,
 } from "../../sources/cloud/CloudWorkOS.js";
+import { stubCloudDeployments } from "./stubCloudDeployments.js";
+
+stubCloudDeployments();
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -17,6 +21,25 @@ afterEach(() => {
 });
 
 describe("CloudWorkOS", () => {
+    it.each(["production", "staging"] as const)(
+        "refuses the %s deployment until its origin and WorkOS client are configured",
+        (environment) => {
+            expect(() => new CloudWorkOS(environment, {})).toThrow(CloudNotConfiguredError);
+            expect(
+                () =>
+                    new CloudWorkOS(environment, {
+                        KISSOPEN_CLOUD_URL: "http://cloud.example.test",
+                        KISSOPEN_CLOUD_WORKOS_CLIENT_ID: "client_01TESTPRODUCTION",
+                        KISSOPEN_CLOUD_STAGING_URL: "http://cloud-staging.example.test",
+                        KISSOPEN_CLOUD_STAGING_WORKOS_CLIENT_ID: "client_01TESTSTAGING",
+                    }),
+            ).toThrow(CloudNotConfiguredError);
+            expect(new CloudWorkOS(environment).workosClientId).toBe(
+                environment === "production" ? "client_01TESTPRODUCTION" : "client_01TESTSTAGING",
+            );
+        },
+    );
+
     it("verifies the authenticated user when hello includes Cloud profile metadata", async () => {
         vi.stubGlobal(
             "fetch",
@@ -363,6 +386,6 @@ describe("CloudWorkOS", () => {
         expect(new Headers(init?.headers).has("authorization")).toBe(false);
         expect(String(init?.body)).not.toContain(syntheticSecret);
         expect(String(init?.body)).toContain("refresh-token");
-        expect(String(init?.body)).toContain("client_01KZD3XE9YAFAMT0P8TD4HP73E");
+        expect(String(init?.body)).toContain("client_01TESTPRODUCTION");
     });
 });

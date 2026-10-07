@@ -151,7 +151,6 @@ describe("ConfigModule", () => {
             enabled: false,
             host: "0.0.0.0",
             port: 3_000,
-            workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
         });
         expect(configuration.values.settings).toMatchObject({
             ethan: { enabled: false },
@@ -389,7 +388,7 @@ describe("ConfigModule", () => {
         expect(source).toContain("# [feature.team]");
         expect(source).toContain('# host = "0.0.0.0"');
         expect(source).toContain("# port = 3000");
-        expect(source).toContain('# workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"');
+        expect(source).toContain('# workos_client_id = "client_01EXAMPLE"');
         expect(source).toContain('# workos_organization_id = "org_01EXAMPLE"');
         expect(source).toContain('# owner_workos_user_id = "user_01EXAMPLE"');
     });

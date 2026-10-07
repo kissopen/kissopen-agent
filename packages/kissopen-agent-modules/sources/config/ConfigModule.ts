@@ -846,11 +846,13 @@ const resolvedValuesSchema = Type.Object(
                                 }),
                             ),
                             port: Type.Integer({ maximum: 65_535, minimum: 0 }),
-                            workosClientId: Type.String({
-                                maxLength: 160,
-                                minLength: 8,
-                                pattern: "^client_[A-Za-z0-9]+$",
-                            }),
+                            workosClientId: Type.Optional(
+                                Type.String({
+                                    maxLength: 160,
+                                    minLength: 8,
+                                    pattern: "^client_[A-Za-z0-9]+$",
+                                }),
+                            ),
                             workosOrganizationId: Type.Optional(
                                 Type.String({
                                     maxLength: 160,
@@ -1222,7 +1224,6 @@ const DEFAULT_VALUES: KissopenAgentConfigValues = {
             enabled: false,
             host: "0.0.0.0",
             port: 3_000,
-            workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
         },
     },
     gemini: {},

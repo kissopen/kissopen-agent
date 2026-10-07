@@ -15,7 +15,7 @@ import {
 } from "../../sources/runtime/startKissopenAgentRuntime.js";
 import { ScriptedProvider } from "../support/ScriptedProvider.js";
 
-const clientId = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+const clientId = "client_01TESTPRODUCTION";
 const organizationId = "org_test123";
 const mode: MessageMode = {
     providerId: "gym",
@@ -70,6 +70,7 @@ describe("team authorship across the real runtime and HTTP API", () => {
                 "enabled = true",
                 'host = "127.0.0.1"',
                 "port = 0",
+                'workos_client_id = "client_01TESTPRODUCTION"',
                 `workos_organization_id = "${organizationId}"`,
                 'owner_workos_user_id = "user_alice123"',
             ].join("\n"),
