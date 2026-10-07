@@ -27,9 +27,9 @@ The constructor takes modules and nothing else. Configuration owns the model cat
 person's global `AGENTS.md`, and compute owns which machine an agent runs on, so neither a
 catalog, an identity, a path, nor a reader callback is passed in.
 
-There is one identity and it is the open-source product's own (`DEFAULT_SYSTEM_PROMPT_IDENTITY`):
+There is one shared runtime identity (`DEFAULT_SYSTEM_PROMPT_IDENTITY`):
 KissOpen in every language. Named bots receive their live bot identity separately; the underlying
-runtime remains KissOpen, not the commercial 一起卷 / WorPar product.
+runtime consistently identifies itself as KissOpen.
 `systemPromptIdentitySchema` still describes that value — a non-blank name of at most 128
 characters free of NULs, carriage returns, line feeds, `{`, and `}`, and a non-blank prompt of at
 most 4,096 characters free of NULs and of the `{{identity}}` and `{{name}}` markers.

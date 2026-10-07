@@ -1,12 +1,11 @@
-# kissopen-agent
+# KissOpen Agent
 
-Standalone Agent runtime extracted from the WorPar product. This local repository
-contains the daemon, typed client SDK, providers, tools, modules, terminal,
-supervisor and their existing tests. Product dashboards, payments, phone login,
-tenant provisioning and the Go cloud gateway are not included.
+An open-source Agent runtime for local AI workflows. This repository contains
+the daemon, typed client SDK, model providers, tools, feature modules, terminal,
+supervisor and their tests.
 
-The existing `kissopen` package names, protocol, data paths and upstream notices
-are deliberately preserved. The initial extraction does not change runtime behavior.
+Clients integrate through the versioned `kissopen` packages and Agent protocol.
+Upstream copyright notices and third-party licenses are preserved.
 The source repository is https://github.com/kissopen/kissopen-agent. This source
 publication does not publish npm packages or binary releases. Historical upstream
 documentation below is retained for attribution; its release links are not
