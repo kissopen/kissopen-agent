@@ -320,7 +320,7 @@ export class TerminalsModule {
         await this.#root(ctx, scope);
         return await this.#locks.runInLock(ctx, key, async () => {
             if (this.#closed) {
-                throw new TerminalError("unavailable", "The WorPar agent is shutting down.");
+                throw new TerminalError("unavailable", "The KissOpen agent is shutting down.");
             }
             const existing = this.#scopes.get(key);
             if (existing !== undefined) return existing;

@@ -80,7 +80,7 @@ export function createKissopenMachineMetadata(options: {
 }): KissopenMachineMetadata {
     const defaultModel = options.models[0];
     if (defaultModel === undefined)
-        throw new Error("This WorPar Agent has no model to offer WorPar.");
+        throw new Error("This KissOpen Agent has no model to offer KissOpen.");
     const host = hostname();
     return {
         capabilities: { newSession: true, resume: false, worktrees: false },

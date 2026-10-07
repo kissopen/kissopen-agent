@@ -163,28 +163,28 @@ export class CloudCredentialsRejectedError extends Error {
 /** Kissopen Cloud accepted the token but associated it with a different WorkOS user. */
 export class CloudIdentityMismatchError extends Error {
     constructor() {
-        super("WorPar Cloud returned a different authenticated user.");
+        super("KissOpen Cloud returned a different authenticated user.");
         this.name = "CloudIdentityMismatchError";
     }
 }
 
 export class CloudOrganizationInvalidRequestError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization request.");
+        super("KissOpen Cloud rejected the organization request.");
         this.name = "CloudOrganizationInvalidRequestError";
     }
 }
 
 export class CloudOrganizationInvalidEndpointError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization endpoint.");
+        super("KissOpen Cloud rejected the organization endpoint.");
         this.name = "CloudOrganizationInvalidEndpointError";
     }
 }
 
 export class CloudOrganizationForbiddenError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization operation.");
+        super("KissOpen Cloud rejected the organization operation.");
         this.name = "CloudOrganizationForbiddenError";
     }
 }

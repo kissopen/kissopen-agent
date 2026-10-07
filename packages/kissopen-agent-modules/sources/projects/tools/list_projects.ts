@@ -11,7 +11,7 @@ export function listProjectsTool(projects: ProjectsModule, agentId: string) {
     return defineAgentTool({
         name: "list_projects",
         defer: true,
-        capabilities: ["List configured WorPar Agent projects."],
+        capabilities: ["List configured KissOpen Agent projects."],
         searchKeywords: ["project catalog", "repositories", "project folders"],
         description:
             "List a bounded page of projects in catalog order. Each row carries the project ID to act on, its name, its folder, and whether it is still being set up. Use nextCursor to continue.",

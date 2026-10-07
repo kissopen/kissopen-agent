@@ -270,7 +270,7 @@ describe("Goal Agent loop", () => {
     }, 12_000);
 
     it("runs a real durable agent through failure, a changed method, autonomous continuation and acceptance", async () => {
-        const folder = await mkdtemp(join(tmpdir(), "worpar-goal-gym-"));
+        const folder = await mkdtemp(join(tmpdir(), "kissopen-goal-gym-"));
         const events = new EventsModule();
         const history = new HistoryModule(events);
         const tasks = new TasksModule();

@@ -32,7 +32,7 @@ const codexSearchParameters = Type.Object(
 );
 
 const CODEX_TOOL_SEARCH_DESCRIPTION =
-    "Search the deferred WorPar Agent tool catalog with BM25 and make the best matching tools callable. Use this when the capability summary says an appropriate tool exists but its definition is not currently loaded.";
+    "Search the deferred KissOpen Agent tool catalog with BM25 and make the best matching tools callable. Use this when the capability summary says an appropriate tool exists but its definition is not currently loaded.";
 
 const CLAUDE_TOOL_SEARCH_MODELS = [
     "anthropic/opus-5",

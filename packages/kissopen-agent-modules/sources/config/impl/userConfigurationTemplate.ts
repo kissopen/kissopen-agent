@@ -4,7 +4,7 @@
  * deliberately uncomments one.
  */
 export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Agent.
-# Uncomment only the settings you want to change. WorPar Agent uses its built-in defaults for everything
+# Uncomment only the settings you want to change. KissOpen Agent uses its built-in defaults for everything
 # left commented out.
 
 # [defaults]
@@ -13,7 +13,7 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 # effort = "medium"
 # permission_mode = "auto"
 # service_tier = "default"
-# instructions = "Additional instructions for every WorPar Agent session."
+# instructions = "Additional instructions for every KissOpen Agent session."
 
 # Bootstrap this standalone installation from the local profile when deploying a remote.
 # Both fields are required. Startup fills missing profile fields only; later edits are preserved.
@@ -36,7 +36,7 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 # daemon_heap_snapshots = false
 # durable_global_event_queue = false
 # kissopen_integration = true
-# Show the agents in the macOS menu bar while the daemon runs. Only a released WorPar Agent
+# Show the agents in the macOS menu bar while the daemon runs. Only a released KissOpen Agent
 # binary carries the menu bar app; a daemon run from a source checkout never has one.
 # menu_bar = true
 # show_reasoning = false
@@ -57,8 +57,8 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 # enabled = false
 # engine = "monty"
 
-# Tailcat v0.4.0 opens the active WorPar Agent API transport through an account-free,
-# WireGuard-encrypted tunnel. WorPar API bearer or WorkOS authentication still applies.
+# Tailcat v0.4.0 opens the active KissOpen Agent API transport through an account-free,
+# WireGuard-encrypted tunnel. KissOpen API bearer or WorkOS authentication still applies.
 # [feature.tailcat]
 # enabled = false
 # port = 24779
@@ -234,7 +234,7 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 
 `;
 
-export const MCP_TOML_TEMPLATE = `# WorPar Agent MCP servers. Changes can be reloaded without restarting the daemon.
+export const MCP_TOML_TEMPLATE = `# KissOpen Agent MCP servers. Changes can be reloaded without restarting the daemon.
 
 # [mcp_servers.local]
 # command = "my-mcp-server"
@@ -249,7 +249,7 @@ export const MCP_TOML_TEMPLATE = `# WorPar Agent MCP servers. Changes can be rel
 
 # [mcp_servers.remote]
 # url = "https://example.com/mcp"
-# http_headers = { "X-Client" = "WorPar Agent" }
+# http_headers = { "X-Client" = "KissOpen Agent" }
 # bearer_token_env_var = "MCP_BEARER_TOKEN"
 # enabled = true
 # startup_timeout_sec = 10

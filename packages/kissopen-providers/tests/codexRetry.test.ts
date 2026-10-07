@@ -32,7 +32,7 @@ describe("Codex stream retries", () => {
     it("does not retry hosted allowance exhaustion even with a generic 429 body", () => {
         const error = Object.assign(new Error("已达到本周用量上限"), {
             status: 429,
-            headers: new Headers({ "x-worpar-error-code": "usage_limit", "retry-after": "3600" }),
+            headers: new Headers({ "x-kissopen-error-code": "usage_limit", "retry-after": "3600" }),
         });
         expect(isRetryableCodexStreamError(error)).toBe(false);
         expect(classifyCodexProviderError(error, error.message, 1)).toMatchObject({

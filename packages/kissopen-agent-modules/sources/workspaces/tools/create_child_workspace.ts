@@ -22,7 +22,7 @@ export function createChildWorkspaceTool(workspaces: WorkspacesModule, agentId: 
         capabilities: ["Create, inspect, rename, and archive Git workspaces and branches."],
         searchKeywords: ["child workspace", "nested worktree", "branch from current workspace"],
         description:
-            'Create one persistent child workspace directly beneath the workspace you are currently working in. Give it a short title written the way a person would write it, such as "Retry policy rewrite": WorPar Agent resolves the parent and builds the Git branch and folder from that title, so write a title rather than a slug or a path. You may supply baseRef to branch from a specific ref; otherwise the child inherits its parent workspace\'s branch. The workspace comes back while checkout and setup may still be running, and its parentId identifies its exact place in the workspace tree.',
+            'Create one persistent child workspace directly beneath the workspace you are currently working in. Give it a short title written the way a person would write it, such as "Retry policy rewrite": KissOpen Agent resolves the parent and builds the Git branch and folder from that title, so write a title rather than a slug or a path. You may supply baseRef to branch from a specific ref; otherwise the child inherits its parent workspace\'s branch. The workspace comes back while checkout and setup may still be running, and its parentId identifies its exact place in the workspace tree.',
         parameters: createChildWorkspaceInputSchema,
         returnType: workspaceSchema,
         durable: true,

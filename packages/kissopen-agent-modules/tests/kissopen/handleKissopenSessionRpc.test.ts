@@ -196,7 +196,7 @@ describe("carrying out what the phone asked", () => {
                 method: "communication",
                 params: { id: "req-1", status: "answered" },
             }),
-        ).toEqual({ error: "WorPar answered a question without any answers." });
+        ).toEqual({ error: "KissOpen answered a question without any answers." });
         expect(calls).toEqual([]);
     });
 
@@ -208,7 +208,7 @@ describe("carrying out what the phone asked", () => {
                 method: "communication",
                 params: "nonsense",
             }),
-        ).toEqual({ error: "WorPar sent an answer WorPar Agent could not read." });
+        ).toEqual({ error: "KissOpen sent an answer KissOpen Agent could not read." });
     });
 
     it("refuses a method it does not have", async () => {

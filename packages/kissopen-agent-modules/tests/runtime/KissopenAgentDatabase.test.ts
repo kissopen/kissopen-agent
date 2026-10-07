@@ -27,7 +27,7 @@ describe("openKissopenAgentDatabase", () => {
         try {
             expect((await stat(`${path}.lock`)).mode & 0o777).toBe(0o600);
             await expect(openKissopenAgentDatabase(path)).rejects.toThrow(
-                "The WorPar agent SQLite database is already open in another process.",
+                "The KissOpen agent SQLite database is already open in another process.",
             );
         } finally {
             await first.close();
@@ -46,7 +46,7 @@ describe("openKissopenAgentDatabase", () => {
         const first = await openKissopenAgentDatabase(join(alias, "agent.sqlite"));
         try {
             await expect(openKissopenAgentDatabase(join(real, "agent.sqlite"))).rejects.toThrow(
-                "The WorPar agent SQLite database is already open in another process.",
+                "The KissOpen agent SQLite database is already open in another process.",
             );
         } finally {
             await first.close();

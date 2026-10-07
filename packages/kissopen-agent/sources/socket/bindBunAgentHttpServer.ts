@@ -51,7 +51,7 @@ export async function bindBunAgentHttpServer(
                 forwardBunAttachment(prepared, head, stream, bytes),
         });
         if (bridge.hostname === undefined || bridge.port === undefined) {
-            throw new Error("The WorPar Agent team HTTP listener has no TCP address.");
+            throw new Error("The KissOpen Agent team HTTP listener has no TCP address.");
         }
     } catch (error) {
         await close().catch(() => undefined);

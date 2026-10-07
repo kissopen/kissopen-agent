@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 /** A replay can reuse only the directory carrying this creation's ownership marker. */
 export async function createEmptyProjectDirectory(path: string, projectId: string): Promise<void> {
     await mkdir(dirname(path), { recursive: true });
-    const marker = join(path, ".worpar-project-owner");
+    const marker = join(path, ".kissopen-project-owner");
     try {
         await mkdir(path);
     } catch (error) {

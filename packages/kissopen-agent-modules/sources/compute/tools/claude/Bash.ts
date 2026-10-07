@@ -34,7 +34,7 @@ const CLAUDE_BASH_DESCRIPTION = `Executes a bash command in the current working 
 - Use the \`gh\` CLI for GitHub operations.
 - Commit or push only when the user asks.
 
-WorPar Agent extensions: \`dangerouslyDisableSandbox\` requests one reviewed Full-access execution in Auto mode; it never bypasses Read only or Workspace write mode. \`secrets\` selects attached secret bundles to expose to this command as environment variables. Secret selection is reviewed separately and stays sandboxed unless \`dangerouslyDisableSandbox\` is also true.
+KissOpen Agent extensions: \`dangerouslyDisableSandbox\` requests one reviewed Full-access execution in Auto mode; it never bypasses Read only or Workspace write mode. \`secrets\` selects attached secret bundles to expose to this command as environment variables. Secret selection is reviewed separately and stays sandboxed unless \`dangerouslyDisableSandbox\` is also true.
 
 Output is truncated to the last ${String(MAX_CLAUDE_SHELL_OUTPUT_CHARACTERS)} characters.`;
 

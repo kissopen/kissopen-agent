@@ -10,7 +10,7 @@ describe("classifyResponsesError", () => {
             {},
             "已达到本周用量上限",
             new Headers({
-                "x-worpar-error-code": "usage_limit",
+                "x-kissopen-error-code": "usage_limit",
                 "retry-after": "3600",
             }),
         );

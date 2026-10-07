@@ -33,7 +33,7 @@ export function cloneProjectTool(projects: ProjectsModule) {
             "Git remote",
         ],
         description:
-            'Import a remote Git repository as a WorPar project in managed storage. Give a folder name and source: {kind: "github", repository: "owner/name"} for GitHub, or {kind: "git", url: "https://..."} for another Git host. Only HTTPS URLs without embedded credentials are supported; SSH URLs and local Git paths are not. For a private GitHub repository, use secret: {kind: "github"} to select the configured GitHub credential; never pass a token or password. This creates a local clone, not a repository on the hosting service. The project is returned before cloning finishes: follow list_projects until setup is ready or failed and report failures before starting work.',
+            'Import a remote Git repository as a KissOpen project in managed storage. Give a folder name and source: {kind: "github", repository: "owner/name"} for GitHub, or {kind: "git", url: "https://..."} for another Git host. Only HTTPS URLs without embedded credentials are supported; SSH URLs and local Git paths are not. For a private GitHub repository, use secret: {kind: "github"} to select the configured GitHub credential; never pass a token or password. This creates a local clone, not a repository on the hosting service. The project is returned before cloning finishes: follow list_projects until setup is ready or failed and report failures before starting work.',
         parameters: cloneProjectInputSchema,
         returnType: projectSchema,
         durable: true,

@@ -26,10 +26,10 @@ export function listKissopenTeamsTool(module: KissopenTeamsModule, actingAgentId
     return defineAgentTool({
         name: "list_kissopen_teams",
         defer: true,
-        capabilities: ["List and manage WorPar teams."],
-        searchKeywords: ["WorPar Cloud organizations", "team list", "WorkOS organizations"],
+        capabilities: ["List and manage KissOpen teams."],
+        searchKeywords: ["KissOpen Cloud organizations", "team list", "WorkOS organizations"],
         description:
-            "List a 10-item page of WorPar teams the connected WorPar Cloud user belongs to, including each WorkOS organization ID and its configured WorPar Agent server endpoint. Follow next_offset until it is null to read every team.",
+            "List a 10-item page of KissOpen teams the connected KissOpen Cloud user belongs to, including each WorkOS organization ID and its configured KissOpen Agent server endpoint. Follow next_offset until it is null to read every team.",
         parameters: listKissopenTeamsInputSchema,
         returnType: listKissopenTeamsResultSchema,
         durable: true,
@@ -37,7 +37,7 @@ export function listKissopenTeamsTool(module: KissopenTeamsModule, actingAgentId
         requiresAutoOrFullAccess: true,
         shouldReviewInAutoMode: () => true,
         describeAutoPermissionAction: () =>
-            "listing the connected WorPar Cloud user's WorkOS organizations and their WorPar Agent endpoints. Access: external WorPar Cloud API",
+            "listing the connected KissOpen Cloud user's WorkOS organizations and their KissOpen Agent endpoints. Access: external KissOpen Cloud API",
         execute: async (
             ctx,
             { offset = 0 }: ListKissopenTeamsInput,
@@ -55,7 +55,7 @@ export function listKissopenTeamsTool(module: KissopenTeamsModule, actingAgentId
                 type: "text",
                 text:
                     teams.length === 0
-                        ? "The connected WorPar Cloud user belongs to no WorPar teams."
+                        ? "The connected KissOpen Cloud user belongs to no KissOpen teams."
                         : [
                               ...teams.map(
                                   (team) =>

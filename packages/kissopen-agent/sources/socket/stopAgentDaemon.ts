@@ -25,7 +25,7 @@ export async function stopAgentDaemon(
     ]);
     void socketClosed;
     if (!processExited) {
-        throw new Error(`The WorPar agent process ${String(pid)} did not exit in time.`);
+        throw new Error(`The KissOpen agent process ${String(pid)} did not exit in time.`);
     }
     return { pid, stopped: true };
 }
@@ -58,7 +58,7 @@ async function requestShutdown(socketPath: string, token: string): Promise<numbe
                     if (response.statusCode !== 202) {
                         reject(
                             new Error(
-                                `The WorPar agent refused to stop (${String(response.statusCode)}).`,
+                                `The KissOpen agent refused to stop (${String(response.statusCode)}).`,
                             ),
                         );
                         return;
@@ -94,7 +94,7 @@ async function waitForClose(socketPath: string, timeoutMs: number): Promise<void
     for (;;) {
         if (!(await socketIsActive(socketPath))) return;
         if (Date.now() >= deadline) {
-            throw new Error(`The WorPar agent did not release ${socketPath} in time.`);
+            throw new Error(`The KissOpen agent did not release ${socketPath} in time.`);
         }
         await new Promise<void>((resolve) => setTimeout(resolve, 100));
     }

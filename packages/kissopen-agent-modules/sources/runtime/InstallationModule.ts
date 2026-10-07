@@ -67,7 +67,7 @@ export class InstallationModule implements AgentModule<AnyAgentTool, LibSQLDatab
 
     #read(): Installation {
         if (this.#installation === undefined) {
-            throw new Error("The WorPar agent installation was not established while starting.");
+            throw new Error("The KissOpen agent installation was not established while starting.");
         }
         return this.#installation;
     }
@@ -84,7 +84,7 @@ async function readInstallation(database: AgentDatabase): Promise<Installation> 
     const storedVersion = values.get("schema_version");
     const schemaVersion = storedVersion === undefined ? 1 : Number.parseInt(storedVersion, 10);
     if (!Number.isSafeInteger(schemaVersion) || schemaVersion < 1) {
-        throw new Error("The stored WorPar agent schema version is invalid.");
+        throw new Error("The stored KissOpen agent schema version is invalid.");
     }
     for (const [key, value] of [
         ["installation_epoch", epoch],

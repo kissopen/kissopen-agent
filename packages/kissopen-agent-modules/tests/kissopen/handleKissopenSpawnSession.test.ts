@@ -165,7 +165,7 @@ describe("starting a session from somebody's phone", () => {
                 remoteSessionId: spawn.remoteSessionId,
             }),
         ).toEqual({
-            errorMessage: "That model is not available in this WorPar Agent.",
+            errorMessage: "That model is not available in this KissOpen Agent.",
             type: "error",
         });
         expect(spawn.started).toEqual([]);
@@ -200,7 +200,7 @@ describe("starting a session from somebody's phone", () => {
                 remoteSessionId: spawn.remoteSessionId,
             }),
         ).toEqual({
-            errorMessage: "That permission mode is not one WorPar Agent has.",
+            errorMessage: "That permission mode is not one KissOpen Agent has.",
             type: "error",
         });
     });
@@ -234,7 +234,7 @@ describe("starting a session from somebody's phone", () => {
                 remoteSessionId: spawn.remoteSessionId,
             }),
         ).toEqual({
-            errorMessage: "WorPar asked for a session WorPar Agent does not know how to start.",
+            errorMessage: "KissOpen asked for a session KissOpen Agent does not know how to start.",
             type: "error",
         });
     });
@@ -254,7 +254,9 @@ describe("the session id one spawn request resolves to", () => {
     });
 
     it("is an Agent Base identity", () => {
-        expect(createKissopenSpawnSessionId("machine-1", "phone-1")).toMatch(/^[a-z][a-z0-9]{1,31}$/);
+        expect(createKissopenSpawnSessionId("machine-1", "phone-1")).toMatch(
+            /^[a-z][a-z0-9]{1,31}$/,
+        );
     });
 });
 
@@ -324,7 +326,7 @@ describe("starting a catalog-owned KISSOPEN Agent session", () => {
                 remoteSessionId: outer.remoteSessionId,
             }),
         ).resolves.toEqual({
-            message: "WorPar asked for a session WorPar Agent does not know how to start.",
+            message: "KissOpen asked for a session KissOpen Agent does not know how to start.",
             type: "error",
         });
         expect(outer.started).toEqual([]);
@@ -342,7 +344,7 @@ describe("starting a catalog-owned KISSOPEN Agent session", () => {
                 remoteSessionId: nested.remoteSessionId,
             }),
         ).resolves.toEqual({
-            message: "WorPar asked for a session WorPar Agent does not know how to start.",
+            message: "KissOpen asked for a session KissOpen Agent does not know how to start.",
             type: "error",
         });
         expect(nested.started).toEqual([]);

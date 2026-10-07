@@ -28,7 +28,9 @@ export async function acquireKissopenAgentSQLiteProcessLock(
     } catch (error: unknown) {
         client.close();
         if (isSQLiteContention(error)) {
-            throw new Error("The WorPar agent SQLite database is already open in another process.");
+            throw new Error(
+                "The KissOpen agent SQLite database is already open in another process.",
+            );
         }
         throw error;
     }

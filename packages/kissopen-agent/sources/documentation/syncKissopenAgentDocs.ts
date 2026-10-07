@@ -28,7 +28,7 @@ async function resolvePackagedDocumentation(): Promise<string> {
             // Try the source-tree location after the packaged distribution location.
         }
     }
-    throw new Error("The packaged WorPar Agent documentation is missing.");
+    throw new Error("The packaged KissOpen Agent documentation is missing.");
 }
 
 async function readDocumentation(
@@ -51,7 +51,7 @@ async function readDocumentation(
                 });
             } else {
                 throw new Error(
-                    `Packaged WorPar Agent documentation contains an unsafe entry: ${path}`,
+                    `Packaged KissOpen Agent documentation contains an unsafe entry: ${path}`,
                 );
             }
         }

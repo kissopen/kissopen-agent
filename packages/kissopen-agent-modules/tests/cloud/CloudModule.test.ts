@@ -461,12 +461,12 @@ describe("CloudModule", () => {
     it.each([
         [
             "disconnected",
-            "Cloud is not authenticated on this WorPar Agent. Sign in to Cloud to continue.",
+            "Cloud is not authenticated on this KissOpen Agent. Sign in to Cloud to continue.",
         ],
-        ["authorizing", "Cloud sign-in is in progress. Complete sign-in on this WorPar Agent."],
+        ["authorizing", "Cloud sign-in is in progress. Complete sign-in on this KissOpen Agent."],
         [
             "credentials_rejected",
-            "Cloud authorization has expired. Sign in to Cloud again on this WorPar Agent.",
+            "Cloud authorization has expired. Sign in to Cloud again on this KissOpen Agent.",
         ],
     ] as const)(
         "explains %s login recovery without requesting another team token",
@@ -792,7 +792,7 @@ describe("CloudModule", () => {
         const rejected = expect(queued).rejects.toMatchObject({
             code: "cloud_not_authenticated",
             message:
-                "Cloud is not authenticated on this WorPar Agent. Sign in to Cloud to continue.",
+                "Cloud is not authenticated on this KissOpen Agent. Sign in to Cloud to continue.",
         });
         refresh.resolve({ accessToken: "public-token", refreshToken: "rotated", user });
         await blocking;
@@ -1294,7 +1294,7 @@ describe("CloudModule", () => {
         ).rejects.toMatchObject({
             code: "cloud_unavailable",
             message: expect.stringContaining(
-                "WorPar team org_partial was created, but its endpoint could not be configured. Use update_kissopen_team",
+                "KissOpen team org_partial was created, but its endpoint could not be configured. Use update_kissopen_team",
             ),
             status: 503,
         } satisfies Partial<CloudOperationError>);

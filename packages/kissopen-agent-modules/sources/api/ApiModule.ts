@@ -606,7 +606,7 @@ export class ApiModule implements AgentModule {
                 return;
             }
             if (!this.#ready) {
-                throw new ApiError(503, "not_initialized", "WorPar Agent is still starting.");
+                throw new ApiError(503, "not_initialized", "KissOpen Agent is still starting.");
             }
             if (this.#team.enabled && isCloudOrganizationRoute(url.pathname)) {
                 throw unsupported("Cloud organizations are unavailable in team mode.");
@@ -1686,13 +1686,13 @@ export class ApiModule implements AgentModule {
                 throw new ApiError(
                     503,
                     "not_initialized",
-                    "WorPar Agent is not ready for attachments.",
+                    "KissOpen Agent is not ready for attachments.",
                 );
             if (this.#draining)
                 throw new ApiError(
                     503,
                     "draining",
-                    "WorPar Agent is draining and no longer accepts attachments.",
+                    "KissOpen Agent is draining and no longer accepts attachments.",
                 );
             const services = this.#services;
             if (services === undefined)
@@ -1806,12 +1806,12 @@ export class ApiModule implements AgentModule {
             ctx = await this.#authenticate(ctx, request.headers.authorization);
             this.#assertTeamUser(ctx);
             if (!this.#ready)
-                throw new ApiError(503, "not_initialized", "WorPar Agent is still starting.");
+                throw new ApiError(503, "not_initialized", "KissOpen Agent is still starting.");
             if (this.#draining)
                 throw new ApiError(
                     503,
                     "draining",
-                    "WorPar Agent is draining and no longer accepts attachments.",
+                    "KissOpen Agent is draining and no longer accepts attachments.",
                 );
             await this.#cloudOperation(() =>
                 this.#connections.forward(ctx, request, socket, remote.id, remote.path, head),
@@ -6448,7 +6448,7 @@ export class ApiModule implements AgentModule {
 
     #assertSocketReady(): void {
         if (!this.#ready) {
-            throw new ApiError(503, "not_initialized", "WorPar Agent is still starting.");
+            throw new ApiError(503, "not_initialized", "KissOpen Agent is still starting.");
         }
         if (this.#draining) {
             throw new ApiError(

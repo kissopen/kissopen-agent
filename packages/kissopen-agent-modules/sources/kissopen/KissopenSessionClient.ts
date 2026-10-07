@@ -429,7 +429,7 @@ export class KissopenSessionClient {
                 },
             );
             if (!response.ok && response.status !== 404) {
-                throw new Error(`WorPar answered with HTTP ${String(response.status)}.`);
+                throw new Error(`KissOpen answered with HTTP ${String(response.status)}.`);
             }
         } finally {
             await this.close();
@@ -521,7 +521,7 @@ export class KissopenSessionClient {
             .catch((error: unknown) => {
                 if (!this.#closed && !this.#archiving) {
                     this.#options.context.log.debug(
-                        "WorPar could not synchronize the session picture.",
+                        "KissOpen could not synchronize the session picture.",
                         {},
                         error,
                     );
@@ -592,7 +592,7 @@ export class KissopenSessionClient {
         );
         const body: unknown = await response.json();
         if (!Value.Check(remoteSessionSchema, body)) {
-            throw new Error("WorPar returned a session WorPar Agent could not read.");
+            throw new Error("KissOpen returned a session KissOpen Agent could not read.");
         }
         const remote = body.session;
         // Old relays omit avatar entirely. Missing/invalid optional artwork must not break chat.
@@ -913,7 +913,7 @@ export class KissopenSessionClient {
             const response = await this.#request(url.toString());
             const body: unknown = await response.json();
             if (!Value.Check(messagePageSchema, body)) {
-                throw new Error("WorPar returned a message page WorPar Agent could not read.");
+                throw new Error("KissOpen returned a message page KissOpen Agent could not read.");
             }
             const messages = body.messages.filter((message): message is KissopenRemoteMessage =>
                 Value.Check(kissopenRemoteMessageSchema, message),
@@ -1218,7 +1218,9 @@ export class KissopenSessionClient {
                 sid: state.remoteSessionId,
             });
             if (!Value.Check(acknowledgementSchema, answer)) {
-                throw new Error("WorPar returned a metadata answer WorPar Agent could not read.");
+                throw new Error(
+                    "KissOpen returned a metadata answer KissOpen Agent could not read.",
+                );
             }
             if (answer.result === "success" && answer.version !== undefined) {
                 this.#metadataVersion = answer.version;
@@ -1230,11 +1232,11 @@ export class KissopenSessionClient {
             // back on top of it, and try again.
             if (answer.result === "version-mismatch" && answer.version !== undefined) {
                 if (answer.metadata === undefined) {
-                    throw new Error("WorPar reported a metadata conflict without the metadata.");
+                    throw new Error("KissOpen reported a metadata conflict without the metadata.");
                 }
                 const latest = this.#decode(state, answer.metadata);
                 if (!Value.Check(recordSchema, latest)) {
-                    throw new Error("WorPar returned metadata WorPar Agent could not read.");
+                    throw new Error("KissOpen returned metadata KissOpen Agent could not read.");
                 }
                 this.#metadataVersion = answer.version;
                 this.#metadataBase = latest;
@@ -1242,9 +1244,9 @@ export class KissopenSessionClient {
                 serialized = JSON.stringify(metadata);
                 continue;
             }
-            throw new Error("WorPar refused the metadata update.");
+            throw new Error("KissOpen refused the metadata update.");
         }
-        throw new Error("WorPar metadata kept changing underneath WorPar Agent.");
+        throw new Error("KissOpen metadata kept changing underneath KissOpen Agent.");
     }
 
     /**
@@ -1282,7 +1284,7 @@ export class KissopenSessionClient {
             });
             if (!Value.Check(acknowledgementSchema, answer)) {
                 throw new Error(
-                    "WorPar returned an agent state answer WorPar Agent could not read.",
+                    "KissOpen returned an agent state answer KissOpen Agent could not read.",
                 );
             }
             if (answer.result === "success" && answer.version !== undefined) {
@@ -1296,9 +1298,9 @@ export class KissopenSessionClient {
                 this.#agentStateVersion = answer.version;
                 continue;
             }
-            throw new Error("WorPar refused the agent state update.");
+            throw new Error("KissOpen refused the agent state update.");
         }
-        throw new Error("WorPar agent state kept changing underneath WorPar Agent.");
+        throw new Error("KissOpen agent state kept changing underneath KissOpen Agent.");
     }
 
     /** When a question was first published, held still so it does not republish forever. */
@@ -1367,7 +1369,7 @@ export class KissopenSessionClient {
             }),
             ...(this.#archiving || session.archived
                 ? {
-                      archiveReason: "The session was ended in WorPar Agent.",
+                      archiveReason: "The session was ended in KissOpen Agent.",
                       archivedBy: "rig",
                       lifecycleState: "archived",
                       // Relay echoes must not turn this one transition into a
@@ -1385,7 +1387,7 @@ export class KissopenSessionClient {
             this.#options.context,
             this.#options.agentId,
         );
-        if (session === undefined) throw new Error("The session WorPar is publishing has gone.");
+        if (session === undefined) throw new Error("The session KissOpen is publishing has gone.");
         return session;
     }
 
@@ -1393,7 +1395,7 @@ export class KissopenSessionClient {
         return new Promise((resolve, reject) => {
             const socket = this.#socket;
             if (socket === undefined) {
-                reject(new Error("WorPar is not connected."));
+                reject(new Error("KissOpen is not connected."));
                 return;
             }
             const finish = (settle: () => void) => {
@@ -1402,9 +1404,9 @@ export class KissopenSessionClient {
                 settle();
             };
             const onAbort = () =>
-                finish(() => reject(new Error("WorPar synchronization stopped.")));
+                finish(() => reject(new Error("KissOpen synchronization stopped.")));
             const timer = setTimeout(
-                () => finish(() => reject(new Error("WorPar did not answer in time."))),
+                () => finish(() => reject(new Error("KissOpen did not answer in time."))),
                 HTTP_TIMEOUT_MS,
             );
             timer.unref();
@@ -1424,7 +1426,8 @@ export class KissopenSessionClient {
             },
             signal: this.#signal(),
         });
-        if (!response.ok) throw new Error(`WorPar answered with HTTP ${String(response.status)}.`);
+        if (!response.ok)
+            throw new Error(`KissOpen answered with HTTP ${String(response.status)}.`);
         return response;
     }
 

@@ -531,7 +531,7 @@ function concreteAgentModelCatalog(
  */
 const KISSOPEN_CATALOG: readonly CatalogAgentModel[] = [
     ...CATALOG.filter((candidate) => candidate.providerId === "codex"),
-    model("codex", "openai/gpt-4o-mini-2024-07-18", "GPT-4o mini · WorPar", ["off"], "off"),
+    model("codex", "openai/gpt-4o-mini-2024-07-18", "GPT-4o mini · KissOpen", ["off"], "off"),
     ...CATALOG.filter((candidate) => candidate.providerId === "deepseek").map((candidate) => ({
         ...candidate,
         providerId: "codex",

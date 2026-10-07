@@ -19,11 +19,13 @@ export function parseKissopenCredentials(value: unknown): {
     stored: StoredKissopenCredentials;
 } {
     if (!Value.Check(kissopenCredentialsFileSchema, value)) {
-        throw new Error("The WorPar credentials file is not in a format WorPar Agent understands.");
+        throw new Error(
+            "The KissOpen credentials file is not in a format KissOpen Agent understands.",
+        );
     }
     const parsed = Value.Cast(kissopenCredentialsFileSchema, value);
     if ((parsed.secret === undefined) === (parsed.encryption === undefined)) {
-        throw new Error("WorPar credentials must contain exactly one encryption format.");
+        throw new Error("KissOpen credentials must contain exactly one encryption format.");
     }
     if (parsed.secret !== undefined) {
         return {
@@ -54,7 +56,7 @@ export function parseKissopenCredentials(value: unknown): {
 function decodeKey(value: string, name: string): Uint8Array {
     const decoded = new Uint8Array(Buffer.from(value, "base64"));
     if (decoded.length !== KEY_BYTES || Buffer.from(decoded).toString("base64") !== value) {
-        throw new Error(`The WorPar ${name} must be a 32-byte base64 value.`);
+        throw new Error(`The KissOpen ${name} must be a 32-byte base64 value.`);
     }
     return decoded;
 }

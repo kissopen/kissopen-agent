@@ -15,7 +15,7 @@ export function createWorkspaceTool(workspaces: WorkspacesModule, agentId: strin
         capabilities: ["Create, inspect, rename, and archive Git workspaces and branches."],
         searchKeywords: ["new workspace", "Git worktree", "create branch", "isolated checkout"],
         description:
-            'Create one persistent workspace for isolated work. Give it a short title written the way a person would write it, such as "Retry policy rewrite": WorPar Agent builds the Git branch and the folder from that title, so write a title rather than a slug or a path. The workspace comes back while its checkout and setup may still be running; the result includes complete branch, path, base, status, and ownership detail, and you can follow its detail cursor with get_workspace when the model-output budget requires another page.',
+            'Create one persistent workspace for isolated work. Give it a short title written the way a person would write it, such as "Retry policy rewrite": KissOpen Agent builds the Git branch and the folder from that title, so write a title rather than a slug or a path. The workspace comes back while its checkout and setup may still be running; the result includes complete branch, path, base, status, and ownership detail, and you can follow its detail cursor with get_workspace when the model-output budget requires another page.',
         parameters: workspaceCreateToolInputSchema,
         returnType: workspaceSchema,
         durable: true,

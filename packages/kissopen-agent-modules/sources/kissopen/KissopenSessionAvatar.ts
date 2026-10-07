@@ -80,17 +80,17 @@ export class KissopenSessionAvatarClient {
             });
             const upload: unknown = await response.json();
             if (!Value.Check(uploadSchema, upload))
-                throw new Error("WorPar returned invalid session picture upload instructions.");
+                throw new Error("KissOpen returned invalid session picture upload instructions.");
             if (!upload.ref.startsWith(`sessions/${this.options.state.remoteSessionId}/avatar/`))
-                throw new Error("WorPar returned a picture reference for another session.");
+                throw new Error("KissOpen returned a picture reference for another session.");
             const url = new URL(upload.uploadUrl);
             if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
-                throw new Error("WorPar returned an invalid picture upload URL.");
+                throw new Error("KissOpen returned an invalid picture upload URL.");
             const sameServer = url.origin === new URL(this.options.configuration.serverUrl).origin;
             let body: RequestInit["body"];
             if (upload.method === "POST") {
                 if (upload.formFields === undefined)
-                    throw new Error("WorPar omitted the picture upload form.");
+                    throw new Error("KissOpen omitted the picture upload form.");
                 const form = new FormData();
                 for (const [name, value] of Object.entries(upload.formFields))
                     form.append(name, value);
@@ -116,7 +116,7 @@ export class KissopenSessionAvatarClient {
                 signal: this.#signal(),
             });
             if (!uploaded.ok)
-                throw new Error(`WorPar picture upload failed (${uploaded.status}).`);
+                throw new Error(`KissOpen picture upload failed (${uploaded.status}).`);
             this.#pending = {
                 hash: asset.contentHash,
                 ref: upload.ref,
@@ -141,7 +141,7 @@ export class KissopenSessionAvatarClient {
         const response = await this.#request(url, method, body);
         const value: unknown = await response.json();
         if (!Value.Check(resultSchema, value))
-            throw new Error("WorPar returned an invalid session picture response.");
+            throw new Error("KissOpen returned an invalid session picture response.");
         this.#remote = value.avatar;
     }
 
@@ -165,7 +165,7 @@ export class KissopenSessionAvatarClient {
             signal: this.#signal(),
         });
         if (!response.ok)
-            throw new Error(`WorPar session picture request failed (${response.status}).`);
+            throw new Error(`KissOpen session picture request failed (${response.status}).`);
         return response;
     }
 }

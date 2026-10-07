@@ -76,7 +76,7 @@ export function createKissopenIntegrationDatabase(ownerId = "") {
         if (row === undefined) return { blockedCredentialFingerprints: [] };
         if (!Value.Check(kissopenIntegrationStateRowSchema, row)) {
             throw new Error(
-                "The WorPar integration state table contains a row WorPar Agent cannot read.",
+                "The KissOpen integration state table contains a row KissOpen Agent cannot read.",
             );
         }
         return parseState(row.state_json);
@@ -111,7 +111,7 @@ export function createKissopenIntegrationDatabase(ownerId = "") {
                     fingerprints,
                 )
             ) {
-                throw new Error("The blocked WorPar credential fingerprints are invalid.");
+                throw new Error("The blocked KissOpen credential fingerprints are invalid.");
             }
             return await ctx.inTx(async (txCtx) => {
                 const current = await read(txCtx);
@@ -166,7 +166,7 @@ async function write(
     state: KissopenIntegrationState,
 ): Promise<void> {
     if (!Value.Check(kissopenIntegrationStateSchema, state)) {
-        throw new Error("The WorPar integration state is invalid.");
+        throw new Error("The KissOpen integration state is invalid.");
     }
     await agentDatabaseRun(
         ctx.db,
@@ -182,10 +182,10 @@ function parseState(value: string): KissopenIntegrationState {
     try {
         parsed = JSON.parse(value) as unknown;
     } catch {
-        throw new Error("WorPar Agent could not read the stored WorPar integration state.");
+        throw new Error("KissOpen Agent could not read the stored KissOpen integration state.");
     }
     if (!Value.Check(kissopenIntegrationStateSchema, parsed)) {
-        throw new Error("The stored WorPar integration state is invalid.");
+        throw new Error("The stored KissOpen integration state is invalid.");
     }
     return structuredClone(parsed) as KissopenIntegrationState;
 }

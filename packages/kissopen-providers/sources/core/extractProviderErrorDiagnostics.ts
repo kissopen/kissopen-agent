@@ -20,7 +20,7 @@ export function extractProviderErrorDiagnostics(
         firstNumber(records, ["status", "statusCode", "status_code"], validStatus);
     const code =
         boundIdentifier(overrides.code) ??
-        firstHeader(records, ["x-worpar-error-code"]) ??
+        firstHeader(records, ["x-kissopen-error-code"]) ??
         firstString(records, ["code", "errorCode", "error_code"], boundIdentifier);
     const errorType =
         boundIdentifier(overrides.errorType) ??

@@ -195,7 +195,7 @@ async function spawnAgentDaemon(
 ): Promise<ChildProcess> {
     const command = resolveAgentDaemonProcessCommand(entrypoint);
     if (command === undefined) {
-        throw new AgentDaemonError("Cannot locate the WorPar agent daemon entrypoint.");
+        throw new AgentDaemonError("Cannot locate the KissOpen agent daemon entrypoint.");
     }
 
     await rotateDaemonLog(paths.logPath).catch(() => undefined);

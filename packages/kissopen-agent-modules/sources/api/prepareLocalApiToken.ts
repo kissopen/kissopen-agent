@@ -16,7 +16,7 @@ export async function prepareLocalApiToken(
         configuredToken !== undefined &&
         (teamModeEnabled || !Value.Check(tokenSchema, configuredToken))
     ) {
-        throw new Error("The configured WorPar Agent API token is invalid for this deployment.");
+        throw new Error("The configured KissOpen Agent API token is invalid for this deployment.");
     }
     if (teamModeEnabled) {
         await unlink(path).catch((error: NodeJS.ErrnoException) => {
@@ -32,7 +32,7 @@ export async function prepareLocalApiToken(
     if (existing !== undefined && configuredToken === undefined) {
         const token = existing.trim();
         if (!Value.Check(tokenSchema, token)) {
-            throw new Error("The WorPar Agent API token is invalid.");
+            throw new Error("The KissOpen Agent API token is invalid.");
         }
         await chmod(path, 0o600);
         return token;

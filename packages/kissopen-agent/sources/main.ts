@@ -94,13 +94,13 @@ export async function startKissopenAgentDaemon(
         });
         if (runtime.configuration.values.feature.team.enabled) {
             if (preparedRuntime === undefined) {
-                throw new Error("The WorPar Agent runtime did not prepare its team HTTP API.");
+                throw new Error("The KissOpen Agent runtime did not prepare its team HTTP API.");
             }
             const { host, port } = runtime.configuration.values.feature.team;
             bound = await bindAgentHttpServer(preparedRuntime, host, port);
         }
         if (bound === undefined) {
-            throw new Error("The WorPar Agent API transport was not ready.");
+            throw new Error("The KissOpen Agent API transport was not ready.");
         }
         await runtime.modules.tailcat.attachTransport(
             runtime.ctx.named("tailcat-transport"),
@@ -120,7 +120,7 @@ export async function startKissopenAgentDaemon(
 
     if (bound === undefined || runtime === undefined) {
         await runtime?.close().catch(() => undefined);
-        throw new Error("The WorPar agent runtime started without binding its API transport.");
+        throw new Error("The KissOpen agent runtime started without binding its API transport.");
     }
 
     let closing: Promise<void> | undefined;
@@ -183,7 +183,7 @@ async function closeKissopenAgentDaemon(
     }
     await runShutdownStep(ctx, "runtime-finalizers", async () => await runtime.close(), failures);
     if (failures.length > 0) {
-        throw new AggregateError(failures, "The WorPar agent daemon did not close cleanly.");
+        throw new AggregateError(failures, "The KissOpen agent daemon did not close cleanly.");
     }
     ctx.log.info(
         `daemon:shutdown:finish pid=${String(process.pid)} durationMs=${String(Math.round(performance.now() - startedAt))}`,

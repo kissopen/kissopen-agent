@@ -78,7 +78,7 @@ export async function runSandboxCommand(args: readonly string[]): Promise<void> 
                             "The Windows sandbox helper returned an invalid status.",
                             {
                                 cause,
-                                hint: "Rebuild or reinstall WorPar Agent with its matching native helpers.",
+                                hint: "Rebuild or reinstall KissOpen Agent with its matching native helpers.",
                                 exitCode: 125,
                             },
                         ),
@@ -89,8 +89,8 @@ export async function runSandboxCommand(args: readonly string[]): Promise<void> 
     });
     console.log(
         status.ready
-            ? "WorPar's Windows sandbox is configured."
-            : "WorPar's Windows sandbox is not configured.",
+            ? "KissOpen's Windows sandbox is configured."
+            : "KissOpen's Windows sandbox is not configured.",
     );
     console.log("State directory: " + status.stateDirectory);
     console.log("Setup version: " + status.setupVersion);

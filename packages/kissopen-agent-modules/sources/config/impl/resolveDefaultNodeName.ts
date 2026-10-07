@@ -23,5 +23,5 @@ export async function resolveDefaultNodeName(): Promise<string> {
         }
     }
     const name = hostname();
-    return Value.Check(nodeNameSchema, name) ? name : "WorPar Agent";
+    return Value.Check(nodeNameSchema, name) ? name : "KissOpen Agent";
 }
