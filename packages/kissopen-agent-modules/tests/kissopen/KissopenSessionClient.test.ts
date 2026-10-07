@@ -1,0 +1,1465 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+    createKissopenSyncDatabase,
+    encryptKissopenPayload,
+    decryptKissopenPayload,
+    kissopenSessionTag,
+    KissopenMessageRefused,
+    KissopenSessionClient,
+    KissopenMessageMapper,
+    kissopenSyncMigrations,
+} from "../../sources/kissopen/index.js";
+import type {
+    KissopenConnectionConfiguration,
+    KissopenSessionOperations,
+    KissopenInboundMessage,
+    KissopenModel,
+    KissopenSessionSnapshot,
+    KissopenSocket,
+    KissopenSyncDatabase,
+} from "../../sources/kissopen/index.js";
+import type { UserInputRequest } from "../../sources/userInput/index.js";
+import { moduleDatabase, type ModuleDatabase } from "../support/moduleDatabase.js";
+
+const AGENT_ID = "agent-1";
+const SESSION_ID = "session-1";
+const SERVER = "https://api.kissopen.example";
+const KEY = Buffer.alloc(32, 7).toString("base64");
+
+const CONFIGURATION: KissopenConnectionConfiguration = {
+    credentialFingerprint: "credential-fingerprint",
+    credentials: { encryption: { secret: new Uint8Array(32), type: "legacy" }, token: "token" },
+    credentialsPath: "/tmp/kissopen/access.key",
+    kissopenHome: "/tmp/kissopen",
+    imported: false,
+    machineId: "machine-1",
+    serverUrl: SERVER,
+};
+
+const MODELS: readonly KissopenModel[] = [
+    {
+        defaultEffort: "medium",
+        effortLevels: ["low", "medium", "high"],
+        id: "gpt-5.6-sol",
+        name: "GPT-5.6 Sol",
+        providerId: "codex",
+        serviceTiers: [],
+    },
+];
+
+function encode(value: unknown): string {
+    return Buffer.from(
+        encryptKissopenPayload(new Uint8Array(Buffer.from(KEY, "base64")), "legacy", value),
+    ).toString("base64");
+}
+
+function decode(value: string): unknown {
+    return decryptKissopenPayload(
+        new Uint8Array(Buffer.from(KEY, "base64")),
+        "legacy",
+        new Uint8Array(Buffer.from(value, "base64")),
+    );
+}
+
+/** A socket that records what was emitted and lets a test play the server's part. */
+class FakeSocket implements KissopenSocket {
+    connected = true;
+    readonly emitted: { event: string; value: unknown }[] = [];
+    readonly #listeners = new Map<string, (...values: any[]) => void>();
+    /** What the next acknowledged emit answers with, in the order they are asked for. */
+    acknowledgements: unknown[] = [];
+
+    connect(): void {
+        this.#listeners.get("connect")?.();
+    }
+
+    disconnect(): void {
+        this.connected = false;
+    }
+
+    emit(event: string, ...values: unknown[]): void {
+        this.emitted.push({ event, value: values[0] });
+        const callback = values[1];
+        if (typeof callback === "function") {
+            (callback as (answer: unknown) => void)(
+                this.acknowledgements.shift() ?? { result: "success", version: 1 },
+            );
+        }
+    }
+
+    on(event: string, listener: (...values: any[]) => void): void {
+        this.#listeners.set(event, listener);
+    }
+
+    /** Plays the server asking this session to do something. */
+    async rpc(method: string, params: unknown): Promise<unknown> {
+        const listener = this.#listeners.get("rpc-request");
+        if (listener === undefined) throw new Error("The client registered no RPC listener.");
+        return await new Promise((resolve) => {
+            listener({ method, params: encode(params) }, (answer: string) => {
+                resolve(answer === "" ? undefined : decode(answer));
+            });
+        });
+    }
+
+    /** Plays the server handing this session a stream to take. */
+    async streamOpen(id: string, method: string, params: unknown): Promise<unknown> {
+        const listener = this.#listeners.get("stream-opened");
+        if (listener === undefined) throw new Error("The client registered no stream listener.");
+        return await new Promise((resolve) => {
+            listener({ id, method, params }, (answer: unknown) => {
+                resolve(answer);
+            });
+        });
+    }
+
+    /** Plays the server saying there is something new. */
+    update(): void {
+        this.#listeners.get("update")?.();
+    }
+
+    emittedValues(event: string): unknown[] {
+        return this.emitted.filter((one) => one.event === event).map((one) => one.value);
+    }
+}
+
+interface Call {
+    readonly kind: string;
+    readonly detail: unknown;
+}
+
+function fakeOperations(overrides: Partial<KissopenSessionOperations> = {}): {
+    calls: Call[];
+    operations: KissopenSessionOperations;
+    pending: UserInputRequest[];
+    snapshot: KissopenSessionSnapshot;
+} {
+    const calls: Call[] = [];
+    const pending: UserInputRequest[] = [];
+    const snapshot: KissopenSessionSnapshot = {
+        agentId: AGENT_ID,
+        archived: false,
+        cwd: "/home/steve/projects/rig",
+        modelId: "gpt-5.6-sol",
+        permissionMode: "auto",
+        projectName: "rig",
+        providerId: "codex",
+        sessionId: SESSION_ID,
+        status: "running",
+        title: "A session",
+        tools: [],
+        working: false,
+    };
+    const operations: KissopenSessionOperations = {
+        gitState: async () => ({
+            success: false,
+            code: "unavailable",
+            error: "Git is unavailable.",
+        }),
+        readFile: async (_ctx, agentId, request) => {
+            calls.push({ kind: "readFile", detail: { agentId, ...request } });
+            return { success: true, content: "", hash: "0".repeat(64) };
+        },
+        readFileAtRevision: async (_ctx, agentId, request) => {
+            calls.push({ kind: "readFileAtRevision", detail: { agentId, ...request } });
+            return { success: true, content: "" };
+        },
+        listDirectory: async (_ctx, agentId, request) => {
+            calls.push({ kind: "listDirectory", detail: { agentId, ...request } });
+            return { success: true, path: request.path, entries: [], truncated: false };
+        },
+        uploadFile: async (_ctx, agentId, request) => {
+            calls.push({ kind: "uploadFile", detail: { agentId, path: request.path } });
+            return { success: true, done: false, received: request.offset };
+        },
+        abort: async () => {
+            calls.push({ detail: undefined, kind: "abort" });
+        },
+        answerQuestion: async (_ctx, _agentId, requestId, answers) => {
+            calls.push({ detail: { answers, requestId }, kind: "answer" });
+        },
+        archiveSession: async (_ctx, sessionId) => {
+            calls.push({ detail: sessionId, kind: "archive" });
+        },
+        clearConversation: async (_ctx, agentId) => {
+            calls.push({ detail: agentId, kind: "clear" });
+        },
+        cancelQuestion: async (_ctx, _agentId, requestId) => {
+            calls.push({ detail: requestId, kind: "cancel" });
+        },
+        models: () => MODELS,
+        pendingQuestions: async () => pending,
+        providerUsage: () => null,
+        session: async () => snapshot,
+        submit: async (_ctx, _agentId, message) => {
+            calls.push({ detail: message, kind: "submit" });
+        },
+        ...overrides,
+    };
+    return { calls, operations, pending, snapshot };
+}
+
+/** A stand-in for KISSOPEN's HTTP API that answers exactly what a test tells it to. */
+function fakeServer(options: { avatars?: boolean } = {}) {
+    const requests: { body: unknown; method: string; url: string }[] = [];
+    let remoteMessages: unknown[] = [];
+    const handler = async (input: string | URL, init: RequestInit = {}): Promise<Response> => {
+        const url = typeof input === "string" ? input : input.toString();
+        const method = init.method ?? "GET";
+        const body = typeof init.body === "string" ? JSON.parse(init.body) : init.body;
+        requests.push({ body, method, url });
+        if (url.endsWith("/v1/sessions") && method === "POST") {
+            return Response.json({
+                session: {
+                    id: "remote-1",
+                    metadataVersion: 4,
+                    ...(options.avatars ? { avatar: null } : {}),
+                },
+            });
+        }
+        if (url.endsWith("/avatar/request-upload"))
+            return Response.json({
+                ref: "sessions/remote-1/avatar/a.enc",
+                method: "PUT",
+                uploadUrl: `${SERVER}/upload-avatar`,
+            });
+        if (url.endsWith("/avatar"))
+            return Response.json({ avatar: method === "DELETE" ? null : { ...body, version: 1 } });
+        if (url.includes("/messages") && method === "POST") {
+            return Response.json({ ok: true });
+        }
+        if (url.includes("/messages")) {
+            const page = { hasMore: false, messages: remoteMessages };
+            remoteMessages = [];
+            return Response.json(page);
+        }
+        if (url.endsWith("/archive")) return Response.json({ ok: true });
+        return Response.json({});
+    };
+    return {
+        fetch: handler as unknown as typeof fetch,
+        requests,
+        deliver: (messages: unknown[]) => {
+            remoteMessages = messages;
+        },
+        posted: (fragment: string) =>
+            requests.filter((one) => one.method === "POST" && one.url.includes(fragment)),
+    };
+}
+
+function remoteMessage(seq: number, id: string, payload: unknown): Record<string, unknown> {
+    return {
+        content: { c: encode(payload), t: "encrypted" },
+        createdAt: 1_000,
+        id,
+        localId: null,
+        seq,
+        updatedAt: 1_000,
+    };
+}
+
+let store: ModuleDatabase;
+let sync: KissopenSyncDatabase;
+
+beforeEach(async () => {
+    store = moduleDatabase(kissopenSyncMigrations, "kissopen-session-client");
+    await store.ready;
+    sync = createKissopenSyncDatabase();
+    await sync.ensureSession(
+        store.context,
+        {
+            agentId: AGENT_ID,
+            credentialFingerprint: "fingerprint",
+            encryptionKeyBase64: KEY,
+            encryptionVariant: "legacy",
+            sessionId: SESSION_ID,
+        },
+        1_000,
+    );
+});
+
+afterEach(() => {
+    store.close();
+});
+
+function client(options: {
+    operations: KissopenSessionOperations;
+    projectId?: () => Promise<string | undefined>;
+    server: ReturnType<typeof fakeServer>;
+    socket: FakeSocket;
+}): KissopenSessionClient {
+    return new KissopenSessionClient({
+        agentId: AGENT_ID,
+        configuration: CONFIGURATION,
+        context: store.context,
+        fetch: options.server.fetch,
+        operations: options.operations,
+        ...(options.projectId === undefined ? {} : { projectId: options.projectId }),
+        sessionId: SESSION_ID,
+        socketFactory: () => options.socket,
+        sync,
+        version: "1.2.3",
+    });
+}
+
+describe("keeping one session in step with KISSOPEN", () => {
+    /*
+     * A question the agent asks is announced from inside its own turn, and the
+     * announcement kicks the sync. The sync writes the agent's metadata, which
+     * the agent refuses from within its own loop — so the sync must run from
+     * outside the caller's asynchronous context, whatever that context was.
+     */
+    it("syncs from outside the asynchronous context of the kick", async () => {
+        const server = fakeServer();
+        const { operations, snapshot } = fakeOperations();
+        const turn = new AsyncLocalStorage<string>();
+        const seen: (string | undefined)[] = [];
+        const session = client({
+            server,
+            socket: new FakeSocket(),
+            operations: {
+                ...operations,
+                session: async () => {
+                    seen.push(turn.getStore());
+                    return snapshot;
+                },
+            },
+        });
+        turn.run("inside the agent's turn", () => session.kick());
+        await session.settle();
+        expect(seen.length).toBeGreaterThan(0);
+        expect(seen.every((store) => store === undefined)).toBe(true);
+        await session.close();
+    });
+
+    it("caps artwork backoff without polling chat and resets it for a new bot revision", async () => {
+        const server = fakeServer({ avatars: true });
+        const { operations, snapshot } = fakeOperations();
+        const read = vi.fn(async () => {
+            throw new Error("Picture unavailable");
+        });
+        let version = 1;
+        const session = client({
+            server,
+            socket: new FakeSocket(),
+            operations: {
+                ...operations,
+                sessionAvatarAsset: read,
+                session: async () => ({
+                    ...snapshot,
+                    avatarVersion: version,
+                    bot: {
+                        id: "b",
+                        name: "Assistant",
+                        username: "assistant",
+                        workspaceId: "w",
+                        orderKey: "1",
+                    },
+                }),
+            },
+        });
+        vi.useFakeTimers();
+        try {
+            await session.settle();
+            const chatRequests = server.requests.length;
+            for (const [index, delay] of [2_000, 4_000, 8_000, 16_000, 32_000].entries()) {
+                await vi.advanceTimersByTimeAsync(delay - 1);
+                expect(read).toHaveBeenCalledTimes(index + 1);
+                await vi.advanceTimersByTimeAsync(1);
+                expect(read).toHaveBeenCalledTimes(index + 2);
+            }
+            await vi.advanceTimersByTimeAsync(120_000);
+            expect(read).toHaveBeenCalledTimes(6);
+            expect(server.requests).toHaveLength(chatRequests);
+            version++;
+            await session.settle();
+            expect(read).toHaveBeenCalledTimes(7);
+        } finally {
+            await session.close();
+            vi.useRealTimers();
+        }
+    });
+
+    it("does not retry failing optional artwork whenever chat synchronizes", async () => {
+        const server = fakeServer({ avatars: true });
+        const { operations, snapshot } = fakeOperations();
+        const read = vi.fn(async () => {
+            throw new Error("Missing stored picture");
+        });
+        const session = client({
+            server,
+            socket: new FakeSocket(),
+            operations: {
+                ...operations,
+                sessionAvatarAsset: read,
+                session: async () => ({
+                    ...snapshot,
+                    avatarVersion: 1,
+                    bot: {
+                        id: "b",
+                        name: "Assistant",
+                        username: "assistant",
+                        workspaceId: "w",
+                        orderKey: "1",
+                    },
+                }),
+            },
+        });
+        try {
+            await session.settle();
+            await session.settle();
+            await session.settle();
+            expect(read).toHaveBeenCalledOnce();
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("continues publishing session changes while a picture upload is pending", async () => {
+        const server = fakeServer({ avatars: true });
+        const request = server.fetch;
+        let finishUpload!: () => void;
+        const uploading = vi.fn();
+        server.fetch = (async (url, init) => {
+            if (String(url).endsWith("/upload-avatar")) {
+                await new Promise<void>((resolve) => {
+                    finishUpload = resolve;
+                    uploading();
+                });
+            }
+            return await request(url, init);
+        }) as typeof fetch;
+        const { operations, snapshot } = fakeOperations();
+        let name = "Assistant";
+        const socket = new FakeSocket();
+        const session = client({
+            server,
+            socket,
+            operations: {
+                ...operations,
+                sessionAvatarAsset: async () => ({
+                    bytes: new Uint8Array([1]),
+                    contentHash: "a".repeat(64),
+                    etag: '"a"',
+                    thumbhash: "hash",
+                    width: 1,
+                    height: 1,
+                }),
+                session: async () => ({
+                    ...snapshot,
+                    avatarVersion: 1,
+                    bot: { id: "b", name, username: "assistant", workspaceId: "w", orderKey: "1" },
+                }),
+            },
+        });
+        try {
+            session.kick();
+            await vi.waitFor(() => expect(uploading).toHaveBeenCalledOnce());
+            name = "Renamed Assistant";
+            session.kick();
+            await vi.waitFor(() => {
+                const values = socket.emittedValues("update-metadata") as { metadata: string }[];
+                expect(values.map((value) => decode(value.metadata))).toContainEqual(
+                    expect.objectContaining({ name }),
+                );
+            });
+        } finally {
+            finishUpload?.();
+            await session.close();
+        }
+    });
+
+    it("syncs bot artwork without adding a project or placing artwork in session metadata", async () => {
+        const server = fakeServer({ avatars: true });
+        const { operations, snapshot } = fakeOperations();
+        let version = 1;
+        let picture = {
+            bytes: new Uint8Array([1]),
+            contentHash: "a".repeat(64),
+            etag: '"a"',
+            thumbhash: "hash",
+            width: 1,
+            height: 1,
+        };
+        const read = vi.fn(async () => (version === 3 ? null : picture));
+        const bot = {
+            id: "b",
+            name: "Assistant",
+            username: "assistant",
+            workspaceId: "w",
+            orderKey: "1",
+        };
+        const socket = new FakeSocket();
+        const session = client({
+            server,
+            socket,
+            operations: {
+                ...operations,
+                sessionAvatarAsset: read,
+                session: async () => ({ ...snapshot, bot, avatarVersion: version }),
+            },
+        });
+        try {
+            await session.settle();
+            await session.settle();
+            expect(read).toHaveBeenCalledTimes(1);
+            expect(
+                server.requests.filter(
+                    (request) => request.url.endsWith("/avatar") && request.method === "PATCH",
+                ),
+            ).toHaveLength(1);
+            const metadata = decode(
+                (server.posted("/v1/sessions")[0]!.body as { metadata: string }).metadata,
+            );
+            expect(metadata).toMatchObject({ bot });
+            expect(metadata).not.toHaveProperty("project");
+            expect(metadata).not.toHaveProperty("avatarVersion");
+            version = 2;
+            picture = { ...picture, contentHash: "b".repeat(64) };
+            await session.settle();
+            version = 3;
+            await session.settle();
+            expect(
+                server.requests.filter(
+                    (request) => request.url.endsWith("/avatar") && request.method === "DELETE",
+                ),
+            ).toHaveLength(1);
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("leaves project sessions and older relays untouched", async () => {
+        for (const avatars of [false, true]) {
+            const server = fakeServer({ avatars });
+            const { operations, snapshot } = fakeOperations();
+            const read = vi.fn(async () => null);
+            const session = client({
+                server,
+                socket: new FakeSocket(),
+                operations: {
+                    ...operations,
+                    sessionAvatarAsset: read,
+                    session: async () => ({
+                        ...snapshot,
+                        avatarVersion: 1,
+                        ...(avatars
+                            ? {}
+                            : {
+                                  bot: {
+                                      id: "b",
+                                      name: "Bot",
+                                      username: "bot",
+                                      workspaceId: "w",
+                                      orderKey: "1",
+                                  },
+                              }),
+                    }),
+                },
+            });
+            try {
+                await session.settle();
+                expect(read).not.toHaveBeenCalled();
+                expect(server.requests.some((request) => request.url.includes("/avatar"))).toBe(
+                    false,
+                );
+            } finally {
+                await session.close();
+            }
+        }
+    });
+
+    it("creates the remote session under the tag that identifies it", async () => {
+        const server = fakeServer();
+        const socket = new FakeSocket();
+        const session = client({ operations: fakeOperations().operations, server, socket });
+        await session.settle();
+
+        const created = server.posted("/v1/sessions")[0];
+        expect(created?.body).toMatchObject({
+            agentState: null,
+            tag: kissopenSessionTag(SESSION_ID),
+        });
+        expect(await sync.readSession(store.context, AGENT_ID)).toMatchObject({
+            remoteSessionId: "remote-1",
+        });
+        await session.close();
+    });
+
+    it("links the idempotent session create to its reconciled project", async () => {
+        const server = fakeServer();
+        const session = client({
+            operations: fakeOperations().operations,
+            projectId: async () => "remote-project-1",
+            server,
+            socket: new FakeSocket(),
+        });
+        await session.settle();
+        expect(server.posted("/v1/sessions")[0]?.body).toMatchObject({
+            projectId: "remote-project-1",
+        });
+        await session.close();
+    });
+
+    it("creates it once and reuses it afterwards", async () => {
+        const server = fakeServer();
+        const session = client({
+            operations: fakeOperations().operations,
+            server,
+            socket: new FakeSocket(),
+        });
+        await session.settle();
+        await session.settle();
+        expect(server.posted("/v1/sessions")).toHaveLength(1);
+        await session.close();
+    });
+
+    it("registers everything the phone may ask of it", async () => {
+        const socket = new FakeSocket();
+        const session = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        expect(socket.emittedValues("rpc-register")).toEqual([
+            { method: "remote-1:browserControl" },
+            { method: "remote-1:abort" },
+            { method: "remote-1:communication" },
+            { method: "remote-1:killSession" },
+            { method: "remote-1:clearConversation" },
+            { method: "remote-1:gitState" },
+            { method: "remote-1:readFile" },
+            { method: "remote-1:readFileAtRevision" },
+            { method: "remote-1:listDirectory" },
+            { method: "remote-1:uploadFile" },
+            { method: "remote-1:terminalCreate" },
+            { method: "remote-1:terminalList" },
+            { method: "remote-1:terminalResize" },
+            { method: "remote-1:terminalStop" },
+        ]);
+        await session.close();
+    });
+
+    /*
+     * Attaching is registered the same way a call is, because the relay
+     * routes both by the same room — but only where there is something to
+     * attach to. A daemon with no terminals that claimed the method would
+     * leave a reader's terminal opening onto nothing.
+     */
+    it("offers to attach a terminal only when the daemon has them", async () => {
+        const without = new FakeSocket();
+        const plain = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket: without,
+        });
+        await plain.settle();
+        expect(without.emittedValues("rpc-register")).not.toContainEqual({
+            method: "remote-1:terminalAttach",
+        });
+        await plain.close();
+
+        const socket = new FakeSocket();
+        const session = client({
+            operations: {
+                ...fakeOperations().operations,
+                terminalAttach: async () => () => undefined,
+            },
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        expect(socket.emittedValues("rpc-register")).toContainEqual({
+            method: "remote-1:terminalAttach",
+        });
+        await session.close();
+    });
+
+    /*
+     * The daemon answers an attach out of its own terminals, which it reaches
+     * through itself. Read out of the operations and called as a bare
+     * function, it would reach for them on nothing and every attach would be
+     * refused with whatever the runtime calls that.
+     */
+    it("attaches on the operations, not as a loose function", async () => {
+        const socket = new FakeSocket();
+        let receiver: unknown;
+        const operations: KissopenSessionOperations = {
+            ...fakeOperations().operations,
+            async terminalAttach(this: unknown) {
+                receiver = this;
+                return () => undefined;
+            },
+        };
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        const answer = await socket.streamOpen("stream-1", "remote-1:terminalAttach", {
+            terminalId: "terminal-1",
+        });
+        expect(answer).toEqual({ ok: true });
+        expect(receiver).toBe(operations);
+        await session.close();
+    });
+
+    it("binds encrypted reads to the attached agent and ignores caller-supplied authority", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        try {
+            await session.settle();
+            expect(
+                await socket.rpc("remote-1:readFile", {
+                    path: "a.txt",
+                    cwd: "/outside",
+                    agentId: "other",
+                }),
+            ).toEqual({ success: true, content: "", hash: "0".repeat(64) });
+            expect(
+                await socket.rpc("remote-1:readFileAtRevision", {
+                    path: "old.txt",
+                    revision: "a".repeat(40),
+                    workspaceId: "other",
+                }),
+            ).toEqual({ success: true, content: "" });
+            expect(calls).toEqual([
+                { kind: "readFile", detail: { agentId: AGENT_ID, path: "a.txt" } },
+                {
+                    kind: "readFileAtRevision",
+                    detail: { agentId: AGENT_ID, path: "old.txt", revision: "a".repeat(40) },
+                },
+            ]);
+            expect(await socket.rpc("remote-2:readFile", { path: "a.txt" })).toEqual({
+                error: "Invalid request",
+            });
+            expect(calls).toHaveLength(2);
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("rejects malformed reads and moving revision selectors before invoking an operation", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        try {
+            await session.settle();
+            for (const revision of [
+                "HEAD",
+                "main",
+                "origin/main",
+                "abc",
+                "A".repeat(40),
+                "a".repeat(40) + ":outside",
+            ]) {
+                expect(
+                    await socket.rpc("remote-1:readFileAtRevision", { path: "a.txt", revision }),
+                ).toMatchObject({ success: false, code: "invalid" });
+            }
+            for (const params of [
+                null,
+                [],
+                { path: "" },
+                { path: 1 },
+                { path: "a".repeat(16_385) },
+            ]) {
+                expect(await socket.rpc("remote-1:readFile", params)).toMatchObject({
+                    success: false,
+                    code: "invalid",
+                });
+            }
+            expect(await socket.rpc("remote-1:gitState", null)).toMatchObject({
+                success: false,
+                code: "invalid",
+            });
+            expect(calls).toEqual([]);
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("keeps a maximum-sized file inside the encrypted relay budget and sanitizes failures", async () => {
+        const socket = new FakeSocket();
+        const content = Buffer.alloc(512 * 1024, 255).toString("base64");
+        const { operations } = fakeOperations({
+            readFile: async () => ({ success: true, content, hash: "a".repeat(64) }),
+        });
+        const session = client({ operations, server: fakeServer(), socket });
+        try {
+            await session.settle();
+            const answer = await socket.rpc("remote-1:readFile", { path: "big.bin" });
+            expect(answer).toEqual({ success: true, content, hash: "a".repeat(64) });
+            expect(Buffer.byteLength(encode(answer))).toBeLessThan(950_000);
+            operations.readFile = async () => {
+                throw new Error("private /secret/path and credentials");
+            };
+            const failure = await socket.rpc("remote-1:readFile", { path: "a.txt" });
+            expect(failure).toMatchObject({ success: false, code: "unavailable" });
+            expect(JSON.stringify(failure)).not.toContain("secret");
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("refuses an oversized UTF-8 Git preview through the shared pre-encryption limit", async () => {
+        const socket = new FakeSocket();
+        const { operations } = fakeOperations({
+            gitState: async () => ({
+                success: true,
+                git: {
+                    facts: {
+                        ahead: 0,
+                        behind: 0,
+                        branch: null,
+                        detached: false,
+                        head: null,
+                        upstream: null,
+                    },
+                    comparison: "ready",
+                    base: "a".repeat(40),
+                    changedFiles: 300,
+                    countsExact: true,
+                    conflicted: false,
+                    deletions: 0,
+                    insertions: 0,
+                    filesTruncated: false,
+                    scannedAt: 1,
+                    files: Array.from({ length: 300 }, (_, index) => ({
+                        path: `${index}/${"界".repeat(1024)}`,
+                        status: "untracked" as const,
+                        staged: false,
+                        unstaged: true,
+                        binary: false,
+                    })),
+                },
+            }),
+        });
+        const session = client({ operations, server: fakeServer(), socket });
+        try {
+            await session.settle();
+            const answer = await socket.rpc("remote-1:gitState", {});
+            expect(answer).toMatchObject({ success: false, code: "too_large" });
+            expect(Buffer.byteLength(encode(answer))).toBeLessThan(1000);
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("sends what the outbox owes, encrypted, and forgets it once accepted", async () => {
+        await sync.projectEvent(store.context, {
+            agentId: AGENT_ID,
+            eventId: "01900000-0000-7000-8000-000000000001",
+            messages: [
+                { localId: "rig:m1", payload: { content: { ev: { t: "text", text: "hi" } } } },
+            ],
+            now: 1_000,
+        });
+        const server = fakeServer();
+        const session = client({
+            operations: fakeOperations().operations,
+            server,
+            socket: new FakeSocket(),
+        });
+        await session.settle();
+
+        const sent = server.posted("/v3/sessions/remote-1/messages")[0]?.body as {
+            messages: { content: string; localId: string }[];
+        };
+        expect(sent.messages).toHaveLength(1);
+        expect(sent.messages[0]?.localId).toBe("rig:m1");
+        expect(decode(sent.messages[0]?.content ?? "")).toEqual({
+            content: { ev: { t: "text", text: "hi" } },
+        });
+        expect(await sync.pending(store.context, AGENT_ID, 10)).toEqual([]);
+        await session.close();
+    });
+
+    it("delivers encrypted incremental text before the inference completes", async () => {
+        const server = fakeServer();
+        const session = client({
+            operations: fakeOperations().operations,
+            server,
+            socket: new FakeSocket(),
+        });
+        const mapper = new KissopenMessageMapper();
+        const project = async (suffix: string, type: string, rigEvent: unknown) => {
+            const id = `01900000-0000-7000-8000-${suffix}`;
+            await sync.projectEvent(store.context, {
+                agentId: AGENT_ID,
+                eventId: id,
+                now: 1000,
+                messages: mapper
+                    .map({
+                        id,
+                        agentId: AGENT_ID,
+                        type: "provider.event",
+                        occurredAt: 1000,
+                        payload: { runId: "run", event: { type }, rigEvent },
+                    })
+                    .map((payload) => ({ localId: payload.localId, payload })),
+            });
+            session.kick();
+            await session.settle();
+        };
+        const delivered = () =>
+            server
+                .posted("/v3/sessions/remote-1/messages")
+                .flatMap((post) => {
+                    const body = post.body as { messages: { content: string }[] };
+                    return body.messages.map(
+                        (message) => decode(message.content) as { content: { ev: unknown } },
+                    );
+                })
+                .map((message) => message.content.ev);
+        try {
+            await project("000000000001", "text_delta", {
+                type: "text_delta",
+                messageId: "inference",
+                contentIndex: 0,
+                delta: "Hello",
+                partial: { content: [{ type: "text", text: "Hello" }] },
+            });
+            // No text_end has been produced: the actual durable, encrypted
+            // delivery path already contains a visible partial reply.
+            expect(delivered()).toContainEqual({
+                t: "text-delta",
+                streamId: "run:inference:0",
+                offset: 0,
+                text: "Hello",
+            });
+            expect(delivered()).not.toContainEqual(expect.objectContaining({ t: "text" }));
+            await project("000000000002", "text_delta", {
+                type: "text_delta",
+                messageId: "inference",
+                contentIndex: 0,
+                delta: " world",
+                partial: { content: [{ type: "text", text: "Hello world" }] },
+            });
+            expect(delivered()).toContainEqual({
+                t: "text-delta",
+                streamId: "run:inference:0",
+                offset: 5,
+                text: " world",
+            });
+            await project("000000000003", "text_end", {
+                type: "text_end",
+                messageId: "inference",
+                contentIndex: 0,
+                content: "Hello world",
+            });
+            expect(delivered()).toContainEqual({
+                t: "text",
+                streamId: "run:inference:0",
+                text: "Hello world",
+            });
+            expect(await sync.pending(store.context, AGENT_ID, 10)).toEqual([]);
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("delivers what the person said on the phone", async () => {
+        const server = fakeServer();
+        const { calls, operations } = fakeOperations();
+        server.deliver([
+            remoteMessage(7, "remote-message-1", {
+                content: { text: "carry on", type: "text" },
+                meta: { model: "gpt-5.6-sol", modelProviderId: "codex", thinkingLevel: "high" },
+                role: "user",
+            }),
+        ]);
+        const session = client({ operations, server, socket: new FakeSocket() });
+        await session.settle();
+
+        const submitted = calls.find((call) => call.kind === "submit")
+            ?.detail as KissopenInboundMessage;
+        expect(submitted.text).toBe("carry on");
+        expect(submitted.remoteMessageId).toBe("kissopen:remote-message-1");
+        expect(submitted.selection).toEqual({
+            effort: "high",
+            modelId: "gpt-5.6-sol",
+            providerId: "codex",
+        });
+        expect(await sync.readSession(store.context, AGENT_ID)).toMatchObject({ lastRemoteSeq: 7 });
+        await session.close();
+    });
+
+    it("says nothing to the agent about KISSOPEN Agent's own message coming back", async () => {
+        const server = fakeServer();
+        const { calls, operations } = fakeOperations();
+        server.deliver([
+            remoteMessage(3, "remote-message-1", {
+                content: { text: "mine", type: "text" },
+                meta: { sentFrom: "rig" },
+                role: "user",
+            }),
+        ]);
+        const session = client({ operations, server, socket: new FakeSocket() });
+        await session.settle();
+        expect(calls.filter((call) => call.kind === "submit")).toEqual([]);
+        expect(await sync.readSession(store.context, AGENT_ID)).toMatchObject({ lastRemoteSeq: 3 });
+        await session.close();
+    });
+
+    it("answers a message it can never take, and keeps reading the ones behind it", async () => {
+        const server = fakeServer();
+        const calls: Call[] = [];
+        const { operations } = fakeOperations({
+            submit: async (_ctx, _agentId, message) => {
+                calls.push({ detail: message, kind: "submit" });
+                if (message.text === "use a model that is gone") {
+                    throw new KissopenMessageRefused("That model is not available.");
+                }
+            },
+        });
+        server.deliver([
+            remoteMessage(4, "remote-message-1", {
+                content: { text: "use a model that is gone", type: "text" },
+                role: "user",
+            }),
+            remoteMessage(5, "remote-message-2", {
+                content: { text: "and now this one", type: "text" },
+                role: "user",
+            }),
+        ]);
+        const session = client({ operations, server, socket: new FakeSocket() });
+        await session.settle();
+
+        const said = server
+            .posted("/messages")
+            .flatMap(
+                (request) =>
+                    (request.body as { messages: { localId: string; content: string }[] }).messages,
+            );
+        expect(said.map((one) => one.localId)).toContain("rig:refused:remote-message-1");
+        const refusal = said.find((one) => one.localId === "rig:refused:remote-message-1");
+        expect(decode(refusal!.content)).toMatchObject({
+            role: "session",
+            content: {
+                id: "refused:remote-message-1",
+                role: "agent",
+                ev: {
+                    t: "user-message-rejected",
+                    ref: "remote-message-1",
+                    reason: "That model is not available.",
+                },
+            },
+        });
+        // The message behind it still ran, and Kissopen was told to send neither again.
+        expect(calls).toHaveLength(2);
+        expect(await sync.readSession(store.context, AGENT_ID)).toMatchObject({ lastRemoteSeq: 5 });
+        await session.close();
+    });
+
+    it("drops a selection naming a permission mode KISSOPEN Agent does not have", async () => {
+        const server = fakeServer();
+        const { calls, operations } = fakeOperations();
+        server.deliver([
+            remoteMessage(1, "remote-message-1", {
+                content: { text: "go", type: "text" },
+                meta: { permissionMode: "anything_goes" },
+                role: "user",
+            }),
+        ]);
+        const session = client({ operations, server, socket: new FakeSocket() });
+        await session.settle();
+        const submitted = calls.find((call) => call.kind === "submit")
+            ?.detail as KissopenInboundMessage;
+        expect(submitted.selection.permissionMode).toBeUndefined();
+        await session.close();
+    });
+
+    it("tells KISSOPEN whether the agent is working", async () => {
+        const socket = new FakeSocket();
+        const { operations, snapshot } = fakeOperations();
+        const working = { ...snapshot, working: true };
+        const session = client({
+            operations: { ...operations, session: async () => working },
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        expect(socket.emittedValues("session-alive")[0]).toMatchObject({
+            sid: "remote-1",
+            thinking: true,
+        });
+        await session.close();
+    });
+
+    it("publishes the session's own facts, encrypted", async () => {
+        const socket = new FakeSocket();
+        const session = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        const published = socket.emittedValues("update-metadata")[0] as {
+            expectedVersion: number;
+            metadata: string;
+        };
+        expect(published.expectedVersion).toBe(4);
+        expect(decode(published.metadata)).toMatchObject({
+            client: { id: "rig", name: "KISSOPEN Agent", version: "1.2.3" },
+            currentModelCode: "gpt-5.6-sol",
+        });
+        await session.close();
+    });
+
+    it("does not republish facts that have not changed", async () => {
+        const socket = new FakeSocket();
+        const session = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        await session.settle();
+        expect(socket.emittedValues("update-metadata")).toHaveLength(1);
+        await session.close();
+    });
+
+    it("republishes metadata only when the latest meaningful-message timestamp changes", async () => {
+        const socket = new FakeSocket();
+        const { operations, snapshot } = fakeOperations();
+        let lastMeaningfulMessageAt = 1_000;
+        const session = client({
+            operations: {
+                ...operations,
+                session: async () => ({ ...snapshot, lastMeaningfulMessageAt }),
+            },
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        await session.settle();
+        expect(socket.emittedValues("update-metadata")).toHaveLength(1);
+
+        lastMeaningfulMessageAt = 2_000;
+        await session.settle();
+        const updates = socket.emittedValues("update-metadata") as { metadata: string }[];
+        expect(updates).toHaveLength(2);
+        expect(decode(updates[1]!.metadata)).toMatchObject({
+            lastMeaningfulMessageAt: 2_000,
+        });
+        await session.close();
+    });
+
+    it("republishes Git line counts and clears them when comparison becomes unavailable", async () => {
+        const socket = new FakeSocket();
+        const { operations, snapshot } = fakeOperations();
+        let git: KissopenSessionSnapshot["git"] = {
+            changedFiles: 2,
+            countsExact: true,
+            deletions: 4,
+            insertions: 12,
+        };
+        const session = client({
+            operations: {
+                ...operations,
+                session: async () => ({ ...snapshot, ...(git === undefined ? {} : { git }) }),
+            },
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        expect(
+            decode((socket.emittedValues("update-metadata")[0] as { metadata: string }).metadata),
+        ).toMatchObject({ git });
+
+        git = undefined;
+        await session.settle();
+        const updates = socket.emittedValues("update-metadata") as { metadata: string }[];
+        expect(updates).toHaveLength(2);
+        expect(decode(updates[1]!.metadata)).not.toHaveProperty("git");
+        await session.close();
+    });
+
+    it("puts KISSOPEN Agent's facts back on top of whatever was written first", async () => {
+        const socket = new FakeSocket();
+        socket.acknowledgements = [
+            { metadata: encode({ theirs: "kept" }), result: "version-mismatch", version: 9 },
+            { result: "success", version: 10 },
+        ];
+        const session = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        const attempts = socket.emittedValues("update-metadata") as { metadata: string }[];
+        expect(attempts).toHaveLength(2);
+        expect(decode(attempts[1]?.metadata ?? "")).toMatchObject({
+            currentModelCode: "gpt-5.6-sol",
+            theirs: "kept",
+        });
+        await session.close();
+    });
+
+    it("clears stale archive and project metadata when restoring the same bot session", async () => {
+        const socket = new FakeSocket();
+        socket.acknowledgements = [
+            {
+                metadata: encode({
+                    lifecycleState: "archived",
+                    archivedBy: "rig",
+                    archiveReason: "old",
+                    lifecycleStateSince: 1,
+                    project: { id: "synthetic", name: "old", kind: "regular" },
+                    workspace: { id: "bot-workspace", name: "old", kind: "worktree" },
+                    theirs: "kept",
+                }),
+                result: "version-mismatch",
+                version: 9,
+            },
+        ];
+        const { operations, snapshot } = fakeOperations();
+        const bot = {
+            id: "bot-1",
+            name: "Assistant",
+            username: "assistant",
+            workspaceId: "bot-workspace",
+            orderKey: "1",
+        };
+        const session = client({
+            operations: { ...operations, session: async () => ({ ...snapshot, bot }) },
+            server: fakeServer(),
+            socket,
+        });
+        try {
+            await session.settle();
+            const attempts = socket.emittedValues("update-metadata") as { metadata: string }[];
+            const restored = decode(attempts.at(-1)!.metadata);
+            expect(restored).toMatchObject({ bot, lifecycleState: "active", theirs: "kept" });
+            for (const field of [
+                "archivedBy",
+                "archiveReason",
+                "lifecycleStateSince",
+                "project",
+                "workspace",
+            ]) {
+                expect(restored).not.toHaveProperty(field);
+            }
+        } finally {
+            await session.close();
+        }
+    });
+
+    it("publishes a question the session is waiting on", async () => {
+        const socket = new FakeSocket();
+        const { operations, pending } = fakeOperations();
+        pending.push({
+            askingAgentId: AGENT_ID,
+            context: "Deciding.",
+            createdAt: 1_000,
+            id: "req-1",
+            question: "Which way?",
+            status: "pending",
+            updatedAt: 1_000,
+        } as UserInputRequest);
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        const published = socket.emittedValues("update-state")[0] as { agentState: string };
+        expect(decode(published.agentState)).toMatchObject({
+            communications: { "req-1": { kind: "form", toolUseId: "req-1" } },
+        });
+        await session.close();
+    });
+
+    it("publishes Fable account quota where the native app reads session limits", async () => {
+        const socket = new FakeSocket();
+        const session = client({
+            operations: fakeOperations({
+                providerUsage: () =>
+                    ({
+                        capturedAt: 2_000,
+                        credits: null,
+                        exhausted: false,
+                        planName: "Max",
+                        providerId: "codex",
+                        vendor: "claude",
+                        windows: {
+                            fableWeekly: {
+                                durationMs: 604_800_000,
+                                resetsAt: 3_000,
+                                startsAt: 1_000,
+                                usedPercent: 64,
+                            },
+                            fiveHour: null,
+                            monthly: null,
+                            weekly: null,
+                        },
+                    }) as never,
+            }).operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        const published = socket.emittedValues("update-state")[0] as { agentState: string };
+        expect(decode(published.agentState)).toMatchObject({
+            usageLimits: {
+                capturedAt: 2_000,
+                windows: [{ id: "seven_day_fable", label: "Fable 7-day", utilization: 64 }],
+            },
+        });
+        await session.close();
+    });
+
+    it("says nothing about questions when there are none", async () => {
+        const socket = new FakeSocket();
+        const session = client({
+            operations: fakeOperations().operations,
+            server: fakeServer(),
+            socket,
+        });
+        await session.settle();
+        expect(socket.emittedValues("update-state")).toEqual([]);
+        await session.close();
+    });
+});
+
+describe("answering what the phone asks of a session", () => {
+    it("stops the agent", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        expect(await socket.rpc("remote-1:abort", {})).toEqual({ success: true });
+        expect(calls.some((call) => call.kind === "abort")).toBe(true);
+        await session.close();
+    });
+
+    it("ends the session for the kill switch", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        expect(await socket.rpc("remote-1:killSession", {})).toEqual({ success: true });
+        expect(calls.find((call) => call.kind === "archive")?.detail).toBe(SESSION_ID);
+        await session.close();
+    });
+
+    it("records an answer to a question it is actually waiting on", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations, pending } = fakeOperations();
+        pending.push({
+            askingAgentId: AGENT_ID,
+            context: "Deciding.",
+            createdAt: 1_000,
+            id: "req-1",
+            question: "Which way?",
+            status: "pending",
+            updatedAt: 1_000,
+        } as UserInputRequest);
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        await socket.rpc("remote-1:communication", {
+            answers: { "req-1": { custom: "left" } },
+            id: "req-1",
+            status: "answered",
+        });
+        // Normalised to the shape every client reads, so the echo parses everywhere.
+        expect(calls.find((call) => call.kind === "answer")?.detail).toEqual({
+            answers: { "req-1": { options: [], custom: "left" } },
+            requestId: "req-1",
+        });
+        await session.close();
+    });
+
+    it("ignores an answer to a question nobody is asking", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        await socket.rpc("remote-1:communication", {
+            answers: {},
+            id: "req-gone",
+            status: "answered",
+        });
+        expect(calls.filter((call) => call.kind === "answer")).toEqual([]);
+        await session.close();
+    });
+
+    it("refuses a request addressed to another session", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        expect(await socket.rpc("remote-2:abort", {})).toEqual({ error: "Invalid request" });
+        expect(calls.filter((call) => call.kind === "abort")).toEqual([]);
+        await session.close();
+    });
+});
+
+describe("ending a session", () => {
+    it("settles archive metadata after the relay echoes its own update", async () => {
+        const socket = new FakeSocket();
+        const server = fakeServer();
+        const session = client({ operations: fakeOperations().operations, server, socket });
+        await session.settle();
+        let now = 1_800_000_000_000;
+        const clock = vi.spyOn(Date, "now").mockImplementation(() => ++now);
+        const emit = socket.emit.bind(socket);
+        let metadataWrites = 0;
+        const echo = vi.spyOn(socket, "emit").mockImplementation((event, ...values) => {
+            emit(event, ...values);
+            // A real relay broadcasts metadata writes back to the session socket.
+            // Bound the broken case so the regression fails without an infinite loop.
+            if (event === "update-metadata" && ++metadataWrites < 4) socket.update();
+        });
+        try {
+            await session.archive();
+            expect(metadataWrites).toBe(1);
+            expect(server.posted("/v1/sessions/remote-1/archive")).toHaveLength(1);
+            expect(socket.connected).toBe(false);
+        } finally {
+            await session.close();
+            echo.mockRestore();
+            clock.mockRestore();
+        }
+    });
+
+    it("tells KISSOPEN the session is over and archives it", async () => {
+        const socket = new FakeSocket();
+        const server = fakeServer();
+        const session = client({ operations: fakeOperations().operations, server, socket });
+        await session.settle();
+        await session.archive();
+        expect(socket.emittedValues("session-end")[0]).toMatchObject({ sid: "remote-1" });
+        expect(server.posted("/v1/sessions/remote-1/archive")).toHaveLength(1);
+    });
+
+    it("ends in KISSOPEN Agent even when KISSOPEN refuses the archive", async () => {
+        const socket = new FakeSocket();
+        const server = fakeServer();
+        const failing = {
+            ...server,
+            fetch: (async (input: string | URL, init: RequestInit = {}) => {
+                const url = typeof input === "string" ? input : input.toString();
+                if (url.endsWith("/archive")) return new Response("no", { status: 500 });
+                return await (server.fetch as unknown as typeof fetch)(input, init);
+            }) as unknown as typeof fetch,
+        };
+        const session = client({
+            operations: fakeOperations().operations,
+            server: failing,
+            socket,
+        });
+        await session.settle();
+        await expect(session.archive()).resolves.toBeUndefined();
+    });
+
+    it("stops answering the phone once the session has ended", async () => {
+        const socket = new FakeSocket();
+        const { calls, operations } = fakeOperations();
+        const session = client({ operations, server: fakeServer(), socket });
+        await session.settle();
+        const archiving = session.archive();
+        const answer = await socket.rpc("remote-1:abort", {});
+        await archiving;
+        expect(answer).toEqual({ error: "This session has ended." });
+        expect(calls.filter((call) => call.kind === "abort")).toEqual([]);
+    });
+});

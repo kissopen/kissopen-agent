@@ -1,0 +1,72 @@
+import type { KissopenComputeError, KissopenComputeErrorCode } from "./computeTypes.js";
+
+export function kissopenComputeErrorStatus(
+    code: KissopenComputeErrorCode,
+): 400 | 404 | 409 | 429 | 502 | 503 | 504 {
+    switch (code) {
+        case "provider_not_found":
+        case "instance_not_found":
+            return 404;
+        case "invalid_request":
+            return 400;
+        case "capacity_exhausted":
+            return 429;
+        case "preparing_compute":
+            return 409;
+        case "invalid_response":
+            return 502;
+        case "provider_lost":
+        case "provider_unhealthy":
+            return 503;
+        case "deadline_exceeded":
+            return 504;
+        case "instance_failed":
+            return 409;
+    }
+}
+
+export function normalizeKissopenComputeError(error: KissopenComputeError): KissopenComputeError {
+    switch (error.code) {
+        case "capacity_exhausted":
+            return {
+                code: error.code,
+                message: error.message,
+                retryable: true,
+                ...(error.state === undefined ? {} : { state: error.state }),
+            };
+        case "deadline_exceeded":
+            return {
+                code: error.code,
+                message: error.message,
+                retryable: true,
+                ...(error.state === undefined ? {} : { state: error.state }),
+            };
+        case "preparing_compute":
+            return {
+                code: error.code,
+                ...(error.elapsedMs === undefined ? {} : { elapsedMs: error.elapsedMs }),
+                ...(error.lastProgressAt === undefined
+                    ? {}
+                    : { lastProgressAt: error.lastProgressAt }),
+                message: error.message,
+                ...(error.percent === undefined ? {} : { percent: error.percent }),
+                ...(error.phase === undefined ? {} : { phase: error.phase }),
+                retryable: true,
+                ...(error.startedAt === undefined ? {} : { startedAt: error.startedAt }),
+                state: error.state,
+            };
+        case "instance_failed":
+        case "instance_not_found":
+        case "invalid_request":
+        case "invalid_response":
+        case "provider_lost":
+        case "provider_not_found":
+        case "provider_unhealthy":
+            return {
+                code: error.code,
+                message: error.message,
+                retryable: false,
+                ...(error.state === undefined ? {} : { state: error.state }),
+            };
+    }
+}

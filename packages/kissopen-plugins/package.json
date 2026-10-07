@@ -1,0 +1,50 @@
+{
+    "name": "kissopen-plugins",
+    "version": "0.0.6",
+    "description": "The typed API available to TypeScript plugins running inside Kissopen.",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/slopus/happy-agent.git",
+        "directory": "packages/kissopen-plugins"
+    },
+    "bin": {
+        "kissopen-plugin": "./dist/developmentRunner.js"
+    },
+    "files": [
+        "dist",
+        "README.md"
+    ],
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./internal": {
+            "types": "./dist/internal.d.ts",
+            "import": "./dist/internal.js",
+            "default": "./dist/internal.js"
+        }
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "node --eval \"import('node:fs/promises').then(({ rm }) => rm('dist', { force: true, recursive: true }))\" && tsc -p tsconfig.build.json",
+        "check": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@sinclair/typebox": "^0.34.49"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.10",
+        "typescript": "^7.0.2",
+        "vitest": "^3.2.4"
+    },
+    "engines": {
+        "node": ">=22.6.0"
+    }
+}

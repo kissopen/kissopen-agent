@@ -1,0 +1,36 @@
+{
+    "name": "@kissopen/kissopen-agent-gym",
+    "version": "0.0.0",
+    "private": true,
+    "description": "End-to-end harness that starts the Kissopen agent with scripted inference and no host machine.",
+    "type": "module",
+    "exports": {
+        ".": "./sources/index.ts"
+    },
+    "scripts": {
+        "check": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "@paralleldrive/cuid2": "^3.3.0",
+        "@sinclair/typebox": "^0.34.49",
+        "@kissopen/kissopen-agent": "workspace:*",
+        "@kissopen/kissopen-agent-base": "workspace:*",
+        "@kissopen/kissopen-agent-client": "workspace:*",
+        "@kissopen/kissopen-agent-compute": "workspace:*",
+        "@kissopen/kissopen-agent-modules": "workspace:*",
+        "@kissopen/kissopen-providers": "workspace:*",
+        "@steve.kite/stdlib": "0.0.12",
+        "ws": "^8.21.1"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.10",
+        "@types/ws": "^8.18.1",
+        "typescript": "^7.0.2",
+        "vitest": "^3.2.4"
+    },
+    "engines": {
+        "node": ">=22.19.0"
+    }
+}

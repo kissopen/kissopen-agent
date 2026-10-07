@@ -1,0 +1,14 @@
+{
+  "projectName": "kissopen-agent",
+  "sourceCommit": "958889dc596423906f77617cb85823540297912b",
+  "restoredSnapshotCommit": "58fa6f8437b5c9f344c17960b029842b54303004",
+  "agentSourceUnchangedBetweenCommits": true,
+  "sourceDirectory": "kissopen-agent",
+  "agentVersion": "0.4.70",
+  "sdkVersion": "0.0.66-preview.3",
+  "historyIncluded": false,
+  "published": true,
+  "repository": "https://github.com/kissopen/kissopen-agent",
+  "releaseReady": false,
+  "runtimeBehaviorChanged": false
+}

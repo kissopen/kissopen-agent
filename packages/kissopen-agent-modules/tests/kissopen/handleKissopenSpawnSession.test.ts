@@ -1,0 +1,409 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { createRootContext } from "@steve.kite/stdlib";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+    createKissopenSpawnSessionId,
+    handleKissopenSpawnSession,
+    KISSOPEN_SPAWN_RETRY_MS,
+} from "../../sources/kissopen/index.js";
+import type {
+    KissopenModel,
+    KissopenSpawnOperations,
+    KissopenSpawnRequest,
+    KissopenSpawnResult,
+} from "../../sources/kissopen/index.js";
+
+const MODELS: readonly KissopenModel[] = [
+    {
+        defaultEffort: "medium",
+        effortLevels: ["low", "medium", "high"],
+        id: "gpt-5.6-sol",
+        name: "GPT-5.6 Sol",
+        providerId: "codex",
+        serviceTiers: [],
+    },
+];
+
+const ctx = createRootContext();
+
+let directory: string;
+
+beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), "kissopen-spawn-"));
+});
+
+afterEach(async () => {
+    await rm(directory, { force: true, recursive: true });
+});
+
+function spawner(remoteSessionId: string | undefined) {
+    const started: KissopenSpawnRequest[] = [];
+    const served = new Map<string, KissopenSpawnResult>();
+    const operations: KissopenSpawnOperations = {
+        defaultSpawnPermissionMode: () => "auto",
+        readSpawnResult: (clientRequestId) => served.get(clientRequestId),
+        rememberSpawnResult: (clientRequestId, result) => {
+            served.set(clientRequestId, result);
+        },
+        spawnSession: async (_ctx, request) => {
+            started.push(request);
+            return { agentId: "agent-1", type: "ready" };
+        },
+    };
+    return {
+        started,
+        operations,
+        remoteSessionId: async () => remoteSessionId,
+    };
+}
+
+function request(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        agent: "rig",
+        clientRequestId: "phone-1",
+        directory,
+        type: "spawn-in-directory",
+        ...overrides,
+    };
+}
+
+function agentRequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        clientRequestId: "phone-1",
+        target: { id: "project-1", kind: "project" },
+        type: "kissopen-agent-spawn",
+        ...overrides,
+    };
+}
+
+describe("starting a session from somebody's phone", () => {
+    it("starts it and answers with the session KISSOPEN can open", async () => {
+        const spawn = spawner("remote-1");
+        const result = await handleKissopenSpawnSession({
+            ctx,
+            operations: spawn.operations,
+            machineId: "machine-1",
+            models: MODELS,
+            params: request(),
+            remoteSessionId: spawn.remoteSessionId,
+        });
+        expect(result).toEqual({ sessionId: "remote-1", type: "success" });
+        expect(spawn.started).toEqual([
+            {
+                cwd: directory,
+                effort: "medium",
+                modelId: "gpt-5.6-sol",
+                permissionMode: "auto",
+                providerId: "codex",
+                sessionId: createKissopenSpawnSessionId("machine-1", "phone-1"),
+            },
+        ]);
+    });
+
+    it("reports a session KISSOPEN has not been told about yet as still owed", async () => {
+        const spawn = spawner(undefined);
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request(),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            clientRequestId: "phone-1",
+            retryAfterMs: KISSOPEN_SPAWN_RETRY_MS,
+            type: "pending",
+        });
+    });
+
+    it("asks before creating a directory on somebody's computer", async () => {
+        const spawn = spawner("remote-1");
+        const missing = join(directory, "new-project");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request({ directory: missing }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({ directory: missing, type: "requestToApproveDirectoryCreation" });
+        expect(spawn.started).toEqual([]);
+    });
+
+    it("creates the directory once the person has said yes", async () => {
+        const spawn = spawner("remote-1");
+        const missing = join(directory, "new-project");
+        const result = await handleKissopenSpawnSession({
+            ctx,
+            operations: spawn.operations,
+            machineId: "machine-1",
+            models: MODELS,
+            params: request({ approvedNewDirectoryCreation: true, directory: missing }),
+            remoteSessionId: spawn.remoteSessionId,
+        });
+        expect(result).toEqual({ sessionId: "remote-1", type: "success" });
+        expect(spawn.started[0]).toMatchObject({ cwd: missing });
+    });
+
+    it("refuses a model this KISSOPEN Agent does not have rather than choosing another", async () => {
+        const spawn = spawner("remote-1");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request({ modelId: "some-other-model" }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            errorMessage: "That model is not available in this WorPar Agent.",
+            type: "error",
+        });
+        expect(spawn.started).toEqual([]);
+    });
+
+    it("refuses a reasoning level the model does not offer", async () => {
+        const spawn = spawner("remote-1");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request({ effort: "ultra" }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            errorMessage: "That reasoning level is not available for this model.",
+            type: "error",
+        });
+    });
+
+    it("refuses a permission mode KISSOPEN Agent does not have", async () => {
+        const spawn = spawner("remote-1");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request({ permissionMode: "anything_goes" }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            errorMessage: "That permission mode is not one WorPar Agent has.",
+            type: "error",
+        });
+    });
+
+    it("refuses a relative directory", async () => {
+        const spawn = spawner("remote-1");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: request({ directory: "projects/thing" }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            errorMessage: "A session directory must be an absolute path.",
+            type: "error",
+        });
+    });
+
+    it("refuses a request it does not understand", async () => {
+        const spawn = spawner("remote-1");
+        expect(
+            await handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: { type: "something-else" },
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).toEqual({
+            errorMessage: "WorPar asked for a session WorPar Agent does not know how to start.",
+            type: "error",
+        });
+    });
+});
+
+describe("the session id one spawn request resolves to", () => {
+    it("is the same every time the phone asks again", () => {
+        expect(createKissopenSpawnSessionId("machine-1", "phone-1")).toBe(
+            createKissopenSpawnSessionId("machine-1", "phone-1"),
+        );
+    });
+
+    it("differs between two daemons on one computer", () => {
+        expect(createKissopenSpawnSessionId("machine-1", "phone-1")).not.toBe(
+            createKissopenSpawnSessionId("machine-2", "phone-1"),
+        );
+    });
+
+    it("is an Agent Base identity", () => {
+        expect(createKissopenSpawnSessionId("machine-1", "phone-1")).toMatch(/^[a-z][a-z0-9]{1,31}$/);
+    });
+});
+
+describe("starting a catalog-owned KISSOPEN Agent session", () => {
+    it.each([
+        { id: "project-1", kind: "project" },
+        { id: "workspace-1", kind: "workspace" },
+        { kind: "newWorkspace", projectId: "project-1" },
+        { kind: "projectFolder", projectPath: "/tmp/new-kissopen-project" },
+    ] as const)("passes the $kind target to the daemon unchanged", async (target) => {
+        const spawn = spawner("remote-1");
+
+        await expect(
+            handleKissopenSpawnSession({
+                ctx,
+                operations: spawn.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: agentRequest({ target }),
+                remoteSessionId: spawn.remoteSessionId,
+            }),
+        ).resolves.toEqual({ sessionId: "remote-1", type: "success" });
+
+        expect(spawn.started).toEqual([
+            {
+                effort: "medium",
+                modelId: "gpt-5.6-sol",
+                permissionMode: "auto",
+                providerId: "codex",
+                sessionId: createKissopenSpawnSessionId("machine-1", "phone-1"),
+                target,
+                workspaceId: createKissopenSpawnSessionId("machine-1", "phone-1:workspace"),
+            },
+        ]);
+    });
+
+    it("fills every omitted agent setting from daemon defaults", async () => {
+        const spawn = spawner("remote-1");
+        spawn.operations.defaultSpawnPermissionMode = () => "read_only";
+
+        await handleKissopenSpawnSession({
+            ctx,
+            operations: spawn.operations,
+            machineId: "machine-1",
+            models: MODELS,
+            params: agentRequest({ agentConfiguration: { type: "kissopen-agent" } }),
+            remoteSessionId: spawn.remoteSessionId,
+        });
+
+        expect(spawn.started[0]).toMatchObject({
+            effort: "medium",
+            modelId: "gpt-5.6-sol",
+            permissionMode: "read_only",
+            providerId: "codex",
+        });
+    });
+
+    it("rejects unknown request and agent-configuration fields", async () => {
+        const outer = spawner("remote-1");
+        await expect(
+            handleKissopenSpawnSession({
+                ctx,
+                operations: outer.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: agentRequest({ worktree: "silently-dropped-before" }),
+                remoteSessionId: outer.remoteSessionId,
+            }),
+        ).resolves.toEqual({
+            message: "WorPar asked for a session WorPar Agent does not know how to start.",
+            type: "error",
+        });
+        expect(outer.started).toEqual([]);
+
+        const nested = spawner("remote-1");
+        await expect(
+            handleKissopenSpawnSession({
+                ctx,
+                operations: nested.operations,
+                machineId: "machine-1",
+                models: MODELS,
+                params: agentRequest({
+                    agentConfiguration: { type: "kissopen-agent", worktree: "also-invalid" },
+                }),
+                remoteSessionId: nested.remoteSessionId,
+            }),
+        ).resolves.toEqual({
+            message: "WorPar asked for a session WorPar Agent does not know how to start.",
+            type: "error",
+        });
+        expect(nested.started).toEqual([]);
+    });
+
+    it("serves a terminal retry from memory without starting anything twice", async () => {
+        const spawn = spawner("remote-1");
+        const options = {
+            ctx,
+            operations: spawn.operations,
+            machineId: "machine-1",
+            models: MODELS,
+            params: agentRequest(),
+            remoteSessionId: spawn.remoteSessionId,
+        };
+
+        const first = await handleKissopenSpawnSession(options);
+        const replay = await handleKissopenSpawnSession(options);
+
+        expect(replay).toEqual(first);
+        expect(spawn.started).toHaveLength(1);
+    });
+
+    it("does not remember pending while a new workspace is being prepared", async () => {
+        const spawn = spawner("remote-1");
+        let attempts = 0;
+        spawn.operations.spawnSession = async (_ctx: unknown, request: KissopenSpawnRequest) => {
+            spawn.started.push(request);
+            attempts += 1;
+            return attempts === 1
+                ? { type: "pending" as const }
+                : { agentId: "agent-1", type: "ready" as const };
+        };
+        const options = {
+            ctx,
+            operations: spawn.operations,
+            machineId: "machine-1",
+            models: MODELS,
+            params: agentRequest({ target: { kind: "newWorkspace", projectId: "project-1" } }),
+            remoteSessionId: spawn.remoteSessionId,
+        };
+
+        await expect(handleKissopenSpawnSession(options)).resolves.toEqual({
+            clientRequestId: "phone-1",
+            retryAfterMs: KISSOPEN_SPAWN_RETRY_MS,
+            type: "pending",
+        });
+        await expect(handleKissopenSpawnSession(options)).resolves.toEqual({
+            sessionId: "remote-1",
+            type: "success",
+        });
+        expect(spawn.started).toHaveLength(2);
+        expect(spawn.started).toEqual([
+            expect.objectContaining({ workspaceId: expect.any(String) }),
+            expect.objectContaining({ workspaceId: expect.any(String) }),
+        ]);
+        expect(
+            spawn.started.map((request) => ("workspaceId" in request ? request.workspaceId : null)),
+        ).toEqual([
+            createKissopenSpawnSessionId("machine-1", "phone-1:workspace"),
+            createKissopenSpawnSessionId("machine-1", "phone-1:workspace"),
+        ]);
+    });
+});

@@ -1,0 +1,36 @@
+{
+    "name": "@kissopen/kissopen-terminal-gym-tests",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "check": "tsc --noEmit",
+        "prepare:image": "pnpm --filter @kissopen/kissopen-terminal-gym run build:image",
+        "test:gym": "pnpm run test:gym:fast",
+        "test:gym:just-bash": "node runGymLane.ts local",
+        "test:gym:api": "node --experimental-strip-types scripts/runKissopenApiSuite.ts",
+        "test:gym:fast": "node runGymLane.ts fast",
+        "test:gym:heavy": "pnpm run prepare:image && KISSOPEN_TERMINAL_GYM_SKIP_BUILD=1 node runGymLane.ts heavy",
+        "test:gym:live:grok": "KISSOPEN_TERMINAL_LIVE_TEST=1 vitest run tests/grok_4_6_real_inference_uses_terminal_and_tool.live.test.ts --testTimeout=300000",
+        "test:gym:slow": "node runGymLane.ts slow",
+        "test:gym:full": "pnpm run test:gym:fast && pnpm run test:gym:slow && pnpm run test:gym:docker",
+        "test:gym:docker": "pnpm run prepare:image && KISSOPEN_TERMINAL_GYM_SKIP_BUILD=1 node runGymLane.ts docker",
+        "test:gym:windows": "node runGymLane.ts native-windows",
+        "test:gym:live:windows": "vitest run tests/native_windows_live_gpt_edits_and_runs_tests.live.test.ts --maxWorkers=1 --testTimeout=360000"
+    },
+    "dependencies": {
+        "@openai/codex": "0.145.0"
+    },
+    "devDependencies": {
+        "@earendil-works/pi-tui": "^0.80.3",
+        "@kissopen/kissopen-agent-gym": "workspace:*",
+        "@kissopen/kissopen-agent-modules": "workspace:*",
+        "@kissopen/kissopen-providers": "workspace:*",
+        "@kissopen/kissopen-terminal-gym": "workspace:*",
+        "@types/node": "^24.0.10",
+        "@types/ws": "8.18.1",
+        "tweetnacl": "0.14.5",
+        "typescript": "^5.8.3",
+        "vitest": "^3.2.4",
+        "ws": "^8.21.1"
+    }
+}

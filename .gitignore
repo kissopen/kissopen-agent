@@ -1,0 +1,23 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+# Local artifacts kept with this checkout but never pushed, such as reference
+# repositories, bug screenshots, investigation files, and draft notes.
+/.local/
+.context/
+# The Kissopen home `pnpm dev` runs the daemon against, holding its databases and token.
+.kissopen-terminal-dev/
+.rig-dev/
+.terminal-target/
+.worktrees/
+artifacts/
+coverage/
+dist/
+node_modules/
+target/
+.zig-cache/
+zig-out/
+
+# Bun standalone compiler target cache.
+.bun-cache/

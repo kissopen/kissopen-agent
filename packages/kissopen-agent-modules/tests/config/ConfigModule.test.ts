@@ -1,0 +1,1043 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { GrokProvider, GrokSessionCredential } from "@kissopen/kissopen-providers";
+import { AgentProviders, type AgentModel } from "@kissopen/kissopen-agent-base";
+import { createRootContext } from "@steve.kite/stdlib";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+    ConfigModule,
+    loadKissopenAgentConfiguration,
+    parseKissopenAgentConfigToml,
+} from "../../sources/config/index.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+    vi.unstubAllEnvs();
+    await Promise.all(
+        temporaryDirectories.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+    );
+});
+
+describe("ConfigModule", () => {
+    it.each([
+        ["us-west-2", "", false],
+        ["us-east-1", "", true],
+        ["eu-north-1", "", true],
+        ["eu-west-1", "", true],
+        ["ap-southeast-4", "", true],
+        ["us-gov-west-1", "", true],
+        ["us-west-2", 'transport = "runtime"', true],
+        ["us-west-2", 'region = "us-east-1"', true],
+        ["us-east-1", 'region = "us-west-2"', false],
+    ])("limits Mantle Sonnet to documented regions: %s %s", async (region, override, offered) => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-sonnet-regions-"));
+        temporaryDirectories.push(root);
+        const folder = join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config");
+        await mkdir(folder, { recursive: true });
+        await writeFile(
+            join(folder, "kissopen.toml"),
+            [
+                "[providers.oregon]",
+                'type = "bedrock"',
+                "enabled = true",
+                `region = "${region}"`,
+                '[providers.oregon.model_overrides."anthropic/sonnet-5"]',
+                override,
+                "[providers.router]",
+                'type = "smart"',
+                "enabled = true",
+                'providers = ["oregon"]',
+            ].join("\n"),
+        );
+        const config = await ConfigModule.load(join(root, ".kissopen"));
+        for (const providerId of ["oregon", "router"]) {
+            expect(
+                config.catalog.some(
+                    (model) => model.providerId === providerId && model.id === "anthropic/sonnet-5",
+                ),
+            ).toBe(offered);
+        }
+    });
+
+    it("loads standalone profile bootstrap records from machine configuration", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-profile-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            '[profile]\nname = "Ada Lovelace"\nemail = "ada@example.test"\n',
+        );
+        const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+        expect(configuration.values.profile).toEqual({
+            name: "Ada Lovelace",
+            email: "ada@example.test",
+        });
+        expect(configuration.sources.global.values.profile).toEqual(configuration.values.profile);
+        expect(configuration.provenance["profile.name"]).toBe("global");
+    });
+
+    it.each([
+        '[profile]\nname = "Ada"',
+        '[profile]\nname = ""\nemail = "ada@example.test"',
+        '[profile]\nname = "Ada"\nemail = "invalid"',
+        '[profile]\nname = "Ada"\nemail = "ada@example.test"\nskip = true',
+    ])("rejects incomplete or invalid profile bootstrap: %s", (source) => {
+        expect(() => parseKissopenAgentConfigToml(source)).toThrow("invalid value");
+    });
+
+    it("rejects a shared standalone profile in team configuration", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-profile-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            '[profile]\nname = "Ada"\nemail = "ada@example.test"\n[feature.team]\nenabled = true\nworkos_organization_id = "org_test"\nowner_workos_user_id = "user_test"\n',
+        );
+        await expect(loadKissopenAgentConfiguration(join(root, ".kissopen"))).rejects.toThrow(
+            "shared standalone profile",
+        );
+    });
+
+    it("loads defaults when both configuration files are missing", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-"));
+        temporaryDirectories.push(root);
+
+        const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+
+        expect(configuration.paths).toMatchObject({
+            agentHome: join(root, ".kissopen", "agent"),
+            docsHome: join(root, ".kissopen", "docs"),
+            globalConfigPath: join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            publicHome: join(root, process.platform === "darwin" ? "KISSOPEN" : "kissopen"),
+            runtimeConfigPath: join(root, ".kissopen", "agent", "runtime.toml"),
+        });
+        expect(configuration.sources.global.exists).toBe(false);
+        expect(configuration.sources.runtime.exists).toBe(false);
+        expect(configuration.values.defaults.modelId).toBe("openai/gpt-5.6-sol");
+        expect(configuration.values.features.crossWorkspace).toBe(true);
+        expect(configuration.values.feature.codemode.enabled).toBe(false);
+        expect(configuration.values.feature.codemode.engine).toBe("monty");
+        expect(configuration.values.feature.tailcat).toEqual({ enabled: false, port: 24_779 });
+        expect(configuration.values.feature.team).toEqual({
+            enabled: false,
+            host: "0.0.0.0",
+            port: 3_000,
+            workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+        });
+        expect(configuration.values.settings).toMatchObject({
+            ethan: { enabled: false },
+            maxCollaborationDepth: 3,
+            maxCollaborators: 5,
+        });
+    });
+
+    it("loads Ethan mode from its nested machine setting", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-ethan-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            ["[settings.ethan]", "enabled = true"].join("\n"),
+        );
+
+        const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+
+        expect(configuration.values.settings.ethan).toEqual({ enabled: true });
+        expect(configuration.provenance["settings.ethan"]).toBe("global");
+    });
+
+    it("loads Code Mode from feature.codemode and attributes its nested setting", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-codemode-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            ["[feature.codemode]", "enabled = true", 'engine = "bun"', "unknown = true"].join("\n"),
+        );
+
+        const configuration = await loadKissopenAgentConfiguration(kissopenHome);
+
+        expect(configuration.values.feature.codemode.enabled).toBe(true);
+        expect(configuration.values.feature.codemode.engine).toBe("bun");
+        expect(configuration.provenance["feature.codemode.enabled"]).toBe("global");
+        expect(configuration.provenance["feature.codemode.engine"]).toBe("global");
+        expect(configuration.sources.global.unknownSettings).toEqual(["feature.codemode.unknown"]);
+    });
+
+    it("loads team mode from the machine configuration", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            [
+                "[feature.team]",
+                "enabled = true",
+                'host = "127.0.0.1"',
+                "port = 4321",
+                'workos_client_id = "client_staging123"',
+                'workos_organization_id = "org_staging123"',
+                'owner_workos_user_id = "user_owner123"',
+                "unknown = true",
+            ].join("\n"),
+        );
+
+        const configuration = await loadKissopenAgentConfiguration(kissopenHome);
+
+        expect(configuration.values.feature.team).toEqual({
+            enabled: true,
+            host: "127.0.0.1",
+            ownerWorkOSUserId: "user_owner123",
+            port: 4_321,
+            workosClientId: "client_staging123",
+            workosOrganizationId: "org_staging123",
+        });
+        expect(configuration.provenance["feature.team.enabled"]).toBe("global");
+        expect(configuration.provenance["feature.team.host"]).toBe("global");
+        expect(configuration.provenance["feature.team.ownerWorkOSUserId"]).toBe("global");
+        expect(configuration.provenance["feature.team.port"]).toBe("global");
+        expect(configuration.provenance["feature.team.workosClientId"]).toBe("global");
+        expect(configuration.provenance["feature.team.workosOrganizationId"]).toBe("global");
+        expect(configuration.sources.global.unknownSettings).toEqual(["feature.team.unknown"]);
+    });
+
+    it("loads Tailcat exposure only from machine configuration", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-tailcat-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            ["[feature.tailcat]", "enabled = true", "port = 24781", "unknown = true"].join("\n"),
+        );
+
+        const configuration = await loadKissopenAgentConfiguration(kissopenHome);
+
+        expect(configuration.values.feature.tailcat).toEqual({ enabled: true, port: 24_781 });
+        expect(configuration.provenance["feature.tailcat.enabled"]).toBe("global");
+        expect(configuration.provenance["feature.tailcat.port"]).toBe("global");
+        expect(configuration.sources.global.unknownSettings).toEqual(["feature.tailcat.unknown"]);
+    });
+
+    it("rejects zero and out-of-range Tailcat ports instead of enabling random allocation", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-tailcat-port-"));
+        temporaryDirectories.push(root);
+        const globalConfig = join(
+            root,
+            process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+            "kissopen.toml",
+        );
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+
+        for (const port of [0, 65_536]) {
+            await writeFile(globalConfig, `[feature.tailcat]\nport = ${String(port)}\n`);
+            await expect(loadKissopenAgentConfiguration(join(root, ".kissopen"))).rejects.toThrow(
+                "feature contains an invalid value",
+            );
+        }
+    });
+
+    it("requires organization and owner identities when team mode is enabled", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-identities-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            ["[feature.team]", "enabled = true"].join("\n"),
+        );
+
+        await expect(loadKissopenAgentConfiguration(join(root, ".kissopen"))).rejects.toThrow(
+            "The merged WorPar Agent configuration is invalid.",
+        );
+    });
+
+    it("does not let a project configuration enable team mode", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-project-team-"));
+        temporaryDirectories.push(root);
+        const previous = process.cwd();
+        await writeFile(join(root, "kissopen.toml"), "[feature.team]\nenabled = true\n");
+        process.chdir(root);
+        try {
+            const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+            expect(configuration.values.feature.team.enabled).toBe(false);
+            expect(configuration.provenance["feature.team.enabled"]).toBeUndefined();
+        } finally {
+            process.chdir(previous);
+        }
+    });
+
+    it("does not let a project configuration expose the daemon through Tailcat", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-project-tailcat-"));
+        temporaryDirectories.push(root);
+        const previous = process.cwd();
+        await writeFile(
+            join(root, "kissopen.toml"),
+            "[feature.tailcat]\nenabled = true\nport = 24781\n",
+        );
+        process.chdir(root);
+        try {
+            const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+            expect(configuration.values.feature.tailcat).toEqual({
+                enabled: false,
+                port: 24_779,
+            });
+            expect(configuration.provenance["feature.tailcat.enabled"]).toBeUndefined();
+            expect(configuration.provenance["feature.tailcat.port"]).toBeUndefined();
+        } finally {
+            process.chdir(previous);
+        }
+    });
+
+    it("writes collaborator controls into the starter KISSOPEN settings", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-template-"));
+        temporaryDirectories.push(root);
+        const module = await ConfigModule.load(join(root, ".kissopen"));
+
+        await module.ensureUserConfigurationFiles();
+
+        const source = await readFile(module.configuration.paths.globalConfigPath, "utf8");
+        expect(source).toContain("# [settings]");
+        expect(source).toContain("# max_collaborators = 5");
+        expect(source).toContain("# max_collaboration_depth = 3");
+        expect(source).toContain("# cross_workspace = true");
+        expect(source).toContain("# [feature.codemode]");
+        expect(source).toContain("# enabled = false");
+        expect(source).toContain('# engine = "monty"');
+        expect(source).toContain("# [feature.tailcat]");
+        expect(source).toContain("# port = 24779");
+        expect(source).toContain("# [feature.team]");
+        expect(source).toContain('# host = "0.0.0.0"');
+        expect(source).toContain("# port = 3000");
+        expect(source).toContain('# workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"');
+        expect(source).toContain('# workos_organization_id = "org_01EXAMPLE"');
+        expect(source).toContain('# owner_workos_user_id = "user_01EXAMPLE"');
+    });
+
+    it("always generates runtime.toml even when it has no settings yet", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-runtime-empty-"));
+        temporaryDirectories.push(root);
+        const config = await ConfigModule.load(join(root, ".kissopen"));
+
+        await config.writeRuntimeConfiguration(createRootContext());
+
+        await expect(readFile(config.configuration.paths.runtimeConfigPath, "utf8")).resolves.toBe(
+            "\n",
+        );
+    });
+
+    it("merges global kissopen.toml with runtime.toml, with runtime winning", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-layers-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await mkdir(join(kissopenHome, "agent"), { recursive: true });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            [
+                "[defaults]",
+                'model = "global-model"',
+                'provider = "global-provider"',
+                "",
+                "[settings]",
+                "show_usage = true",
+                "inference_max_retries = 2",
+                "max_collaborators = 7",
+                "max_collaboration_depth = 4",
+                "",
+                "[providers.codex]",
+                'type = "codex"',
+                "enabled = true",
+            ].join("\n"),
+        );
+        await writeFile(
+            join(kissopenHome, "agent", "runtime.toml"),
+            ["[defaults]", 'model = "runtime-model"', "", "[settings]", "show_usage = false"].join(
+                "\n",
+            ),
+        );
+
+        const module = await ConfigModule.load(kissopenHome);
+
+        expect(module.configuration.values.defaults).toMatchObject({
+            modelId: "runtime-model",
+            providerId: "global-provider",
+        });
+        expect(module.configuration.values.settings).toMatchObject({
+            inferenceMaxRetries: 2,
+            maxCollaborationDepth: 4,
+            maxCollaborators: 7,
+            showUsage: false,
+        });
+        expect(module.configuration.values.providers.codex).toMatchObject({
+            enabled: true,
+            type: "codex",
+        });
+        expect(module.configuration.provenance["settings.maxCollaborators"]).toBe("global");
+        expect(module.configuration.provenance["settings.maxCollaborationDepth"]).toBe("global");
+    });
+
+    it("lets a scripted provider own its catalog after compatibility state is restored", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-scripted-catalog-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(kissopenHome, "agent"), { recursive: true });
+        await writeFile(
+            join(kissopenHome, "agent", "runtime.toml"),
+            ["[providers.gym]", 'type = "codex"', "enabled = true"].join("\n"),
+        );
+        const models: readonly AgentModel[] = [
+            {
+                defaultEffort: "medium",
+                effortLevels: ["low", "medium", "high"],
+                id: "gym/model",
+                name: "Gym Model",
+                providerId: "gym",
+            },
+            {
+                defaultEffort: "medium",
+                effortLevels: ["low", "medium", "high"],
+                id: "gym/model-2",
+                name: "Gym Model Two",
+                providerId: "gym",
+            },
+        ];
+        const module = await ConfigModule.load(kissopenHome, {
+            inference: { models, providers: new AgentProviders() },
+        });
+
+        expect(
+            module.catalog.filter((model) => model.providerId === "gym").map((model) => model.id),
+        ).toEqual(["gym/model", "gym/model-2"]);
+    });
+
+    it("offers Fable 5.1 through Claude and Bedrock", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-fable-5-1-catalog-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            "[providers.claude]\nenabled = true\n\n[providers.bedrock]\nenabled = true\n",
+        );
+
+        const module = await ConfigModule.load(join(root, ".kissopen"));
+
+        expect(
+            module.catalog.find(
+                (model) => model.providerId === "claude" && model.id === "anthropic/fable-5-1",
+            ),
+        ).toMatchObject({
+            contextWindow: 1_000_000,
+            defaultEffort: "medium",
+            effortLevels: ["off", "low", "medium", "high", "xhigh", "max"],
+            enabled: true,
+            name: "Fable 5.1",
+        });
+        expect(
+            module.catalog.find(
+                (model) => model.providerId === "bedrock" && model.id === "anthropic/fable-5-1",
+            ),
+        ).toMatchObject({
+            contextWindow: 1_000_000,
+            defaultEffort: "medium",
+            effortLevels: ["off", "low", "medium", "high", "xhigh", "max"],
+            enabled: true,
+            name: "Fable 5.1",
+        });
+    });
+
+    it("compacts 1M Claude models at the Claude Code team's recommended 400k", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-claude-compaction-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            "[providers.claude]\nenabled = true\n\n[providers.bedrock]\nenabled = true\n",
+        );
+
+        const module = await ConfigModule.load(join(root, ".kissopen"));
+
+        // The Claude Code team's recommended compromise for the 1M window; measured sessions put
+        // the cost and quality sweet spot at 300k to 400k, well below Claude Code's own default.
+        const recommendedThreshold = 400_000;
+        for (const modelId of [
+            "anthropic/fable-5-1",
+            "anthropic/fable-5",
+            "anthropic/opus-4-8",
+            "anthropic/opus-5",
+            "anthropic/sonnet-5",
+        ]) {
+            expect(module.modelContext("claude", modelId), modelId).toEqual({
+                contextWindow: 1_000_000,
+                autoCompactWindow: recommendedThreshold,
+            });
+        }
+        expect(module.modelContext("bedrock", "anthropic/opus-5")).toEqual({
+            contextWindow: 1_000_000,
+            autoCompactWindow: recommendedThreshold,
+        });
+    });
+
+    it("offers GPT-6 Astra through Codex and Bedrock with KISSOPEN's operating profile", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-gpt-6-astra-catalog-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            "[providers.codex]\nenabled = true\n\n[providers.bedrock]\nenabled = true\n",
+        );
+
+        const module = await ConfigModule.load(join(root, ".kissopen"));
+
+        expect(
+            module.catalog.find(
+                (model) => model.providerId === "codex" && model.id === "openai/gpt-6-astra",
+            ),
+        ).toMatchObject({
+            contextWindow: 272_000,
+            defaultEffort: "high",
+            effortLevels: ["low", "medium", "high", "xhigh", "max"],
+            enabled: true,
+            name: "GPT-6 Astra",
+            serviceTiers: ["priority"],
+        });
+        expect(module.modelContext("codex", "openai/gpt-6-astra")).toEqual({
+            contextWindow: 272_000,
+            autoCompactWindow: 244_800,
+        });
+        expect(
+            module.catalog.find(
+                (model) => model.providerId === "bedrock" && model.id === "openai/gpt-6-astra",
+            ),
+        ).toMatchObject({
+            contextWindow: 272_000,
+            defaultEffort: "high",
+            effortLevels: ["low", "medium", "high", "xhigh", "max"],
+            enabled: true,
+            name: "GPT-6 Astra",
+        });
+        expect(module.modelContext("bedrock", "openai/gpt-6-astra")).toEqual({
+            contextWindow: 272_000,
+            autoCompactWindow: 244_800,
+        });
+    });
+
+    it("ignores unknown TOML fields while retaining their source locations", () => {
+        const parsed = parseKissopenAgentConfigToml(
+            ["unknown = true", "[settings]", "show_usage = true", "show_usgae = false"].join("\n"),
+        );
+
+        expect(parsed.values.settings).toEqual({ show_usage: true });
+        expect(parsed.unknownSettings).toEqual(["unknown", "settings.show_usgae"]);
+    });
+
+    it("rejects malformed TOML and invalid known values", async () => {
+        expect(() => parseKissopenAgentConfigToml("[settings\nshow_usage = true")).toThrow();
+        expect(() => parseKissopenAgentConfigToml('[settings]\nshow_usage = "yes"')).toThrow(
+            "invalid value",
+        );
+        expect(() => parseKissopenAgentConfigToml("[settings]\nmax_collaborators = 0")).toThrow(
+            "invalid value",
+        );
+        expect(() => parseKissopenAgentConfigToml("[settings]\nmax_collaboration_depth = 65")).toThrow(
+            "invalid value",
+        );
+        expect(() => parseKissopenAgentConfigToml('[feature.codemode]\nengine = "unknown"')).toThrow(
+            "invalid value",
+        );
+
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-invalid-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            '[settings]\nshow_usage = "yes"\n',
+        );
+        await expect(ConfigModule.load(join(root, ".kissopen"))).rejects.toThrow(
+            "Could not read WorPar Agent configuration",
+        );
+    });
+
+    it("returns the same frozen snapshot through the module and loader", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-snapshot-"));
+        temporaryDirectories.push(root);
+        const module = await ConfigModule.load(join(root, ".kissopen"));
+        const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
+
+        expect(Object.isFrozen(module.configuration)).toBe(true);
+        expect(Object.isFrozen(module.configuration.values.defaults)).toBe(true);
+        expect(Object.isFrozen(module.configuration.values.providers.codex)).toBe(true);
+        expect(module.configuration.paths).not.toBe(configuration.paths);
+        expect(module.configuration.values).toEqual(configuration.values);
+    });
+
+    it("loads the project kissopen.toml layer and filters machine settings", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-project-"));
+        temporaryDirectories.push(root);
+        await writeFile(
+            join(root, "kissopen.toml"),
+            [
+                "[defaults]",
+                'model = "project-model"',
+                'permission_mode = "full_access"',
+                "",
+                "[settings]",
+                "show_usage = true",
+                "inference_max_retries = 20",
+                "max_collaborators = 100",
+                "max_collaboration_depth = 20",
+                "",
+                "[settings.ethan]",
+                "enabled = true",
+                "",
+                "[workspace]",
+                'setup_commands = ["pnpm install"]',
+                "[profile]",
+                'name = "Repository impersonation"',
+                'email = "repository@example.test"',
+            ].join("\n"),
+        );
+
+        const previousCwd = process.cwd();
+        process.chdir(root);
+        try {
+            const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+
+            expect(configuration.sources.local).toMatchObject({
+                exists: true,
+                path: join(process.cwd(), "kissopen.toml"),
+            });
+            expect(configuration.values.defaults).toMatchObject({
+                modelId: "project-model",
+                permissionMode: "auto",
+            });
+            expect(configuration.values.settings).toMatchObject({
+                ethan: { enabled: false },
+                inferenceMaxRetries: 10,
+                maxCollaborationDepth: 3,
+                maxCollaborators: 5,
+                showUsage: true,
+            });
+            expect(configuration.values.workspace.setupCommands).toEqual(["pnpm install"]);
+            expect(configuration.values.profile).toBeUndefined();
+            expect(configuration.provenance["defaults.modelId"]).toBe("local");
+        } finally {
+            process.chdir(previousCwd);
+        }
+    });
+
+    it("prefers the configured Gemini key over the environment", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-gemini-"));
+        temporaryDirectories.push(root);
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            ["[gemini]", 'api_key = "configured-gemini-key"'].join("\n"),
+        );
+
+        const module = await ConfigModule.load(join(root, ".kissopen"), {
+            environment: { GEMINI_API_KEY: "environment-gemini-key" },
+        });
+
+        expect(module.geminiApiKey).toBe("configured-gemini-key");
+        expect(module.configuration.provenance.gemini).toBe("global");
+    });
+
+    it("falls back to the GEMINI_API_KEY environment variable without a configured key", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-gemini-env-"));
+        temporaryDirectories.push(root);
+
+        const module = await ConfigModule.load(join(root, ".kissopen"), {
+            environment: { GEMINI_API_KEY: "environment-gemini-key" },
+        });
+
+        expect(module.geminiApiKey).toBe("environment-gemini-key");
+    });
+
+    it("ignores a Gemini key written in a project kissopen.toml", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-gemini-project-"));
+        temporaryDirectories.push(root);
+        await writeFile(
+            join(root, "kissopen.toml"),
+            ["[gemini]", 'api_key = "project-gemini-key"'].join("\n"),
+        );
+
+        const previousCwd = process.cwd();
+        process.chdir(root);
+        try {
+            const module = await ConfigModule.load(join(root, ".kissopen"));
+
+            expect(module.geminiApiKey).toBeUndefined();
+        } finally {
+            process.chdir(previousCwd);
+        }
+    });
+
+    it("resolves the complete KISSOPEN Agent-shaped configuration into bounded camelCase values", () => {
+        const parsed = parseKissopenAgentConfigToml(
+            [
+                "[defaults]",
+                'service_tier = "fast"',
+                "",
+                "[features]",
+                "cross_workspace = true",
+                "",
+                "[docker]",
+                'image = "node:22"',
+                'workdir = "/workspace/project"',
+                "",
+                "[network]",
+                "allow_local_binding = true",
+                "allowed_ports = [8080]",
+                "",
+                "[permissions]",
+                'protected_paths = [".env"]',
+                "",
+                "[providers]",
+                "default_enable = false",
+                "[providers.codex]",
+                'api_key = "secret"',
+                "auto_enable = true",
+                'include_models = ["openai/gpt-5.6-sol"]',
+                "",
+                "[providers.bedrock]",
+                'config_file = "/tmp/aws-config"',
+                'credentials_file = "/tmp/aws-credentials"',
+                'profile = "work-bedrock"',
+                'region = "us-east-1"',
+                'search_model = "openai.gpt-oss-120b"',
+                "",
+                "[workspace]",
+                'sync = [".env.example"]',
+            ].join("\n"),
+        );
+
+        expect(parsed.values).toMatchObject({
+            defaults: { service_tier: "fast" },
+            docker: { image: "node:22" },
+            features: { cross_workspace: true },
+            provider_default_enable: false,
+            providers: {
+                bedrock: {
+                    config_file: "/tmp/aws-config",
+                    credentials_file: "/tmp/aws-credentials",
+                    profile: "work-bedrock",
+                    region: "us-east-1",
+                },
+                codex: {
+                    auto_enable: true,
+                    include_models: ["openai/gpt-5.6-sol"],
+                },
+            },
+        });
+        // The parser intentionally retains TOML spelling; only the resolved snapshot is ergonomic.
+        expect(parsed.unknownSettings).toEqual([]);
+    });
+
+    it("merges provider records by layer and applies default enablement", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-providers-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await mkdir(join(kissopenHome, "agent"), { recursive: true });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            [
+                "[providers]",
+                "default_enable = false",
+                "[providers.codex]",
+                'api_key = "secret"',
+            ].join("\n"),
+        );
+        await writeFile(
+            join(kissopenHome, "agent", "runtime.toml"),
+            [
+                "[providers]",
+                "[providers.codex]",
+                "auto_enable = true",
+                'include_models = ["runtime-model"]',
+            ].join("\n"),
+        );
+
+        const configuration = (await ConfigModule.load(kissopenHome)).configuration;
+        expect(configuration.values.providers.codex).toMatchObject({
+            enabled: false,
+            autoEnable: true,
+            includeModels: ["runtime-model"],
+            apiKey: "secret",
+            type: "codex",
+        });
+    });
+
+    it("rewrites daemon runtime state without losing other runtime settings", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-runtime-state-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(kissopenHome, "agent"), { recursive: true });
+        await writeFile(
+            join(kissopenHome, "agent", "runtime.toml"),
+            "[settings]\nshow_usage = true\n",
+        );
+        const config = await ConfigModule.load(kissopenHome);
+
+        await config.updateRuntimeProviderStates(createRootContext(), {
+            codex: { autoEnable: true, enabled: false },
+        });
+
+        const source = await readFile(config.configuration.paths.runtimeConfigPath, "utf8");
+        const parsed = parseKissopenAgentConfigToml(source);
+        expect(parsed.values.settings).toMatchObject({ show_usage: true });
+        expect(parsed.values.providers?.codex).toMatchObject({
+            auto_enable: true,
+            enabled: false,
+        });
+    });
+
+    it("persists live Tailcat enablement in runtime.toml and updates its current value", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-runtime-tailcat-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            "[feature.tailcat]\nenabled = true\n",
+        );
+        const config = await ConfigModule.load(kissopenHome);
+
+        expect(config.tailcatEnabled).toBe(true);
+        await config.updateRuntimeTailcatEnabled(createRootContext(), false);
+
+        expect(config.tailcatEnabled).toBe(false);
+        const source = await readFile(config.configuration.paths.runtimeConfigPath, "utf8");
+        expect(parseKissopenAgentConfigToml(source).values.feature?.tailcat).toEqual({
+            enabled: false,
+        });
+    });
+
+    it("uses the ambient Grok CLI session without an explicit auth file", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-grok-session-"));
+        temporaryDirectories.push(root);
+        await writeFile(
+            join(root, "auth.json"),
+            JSON.stringify({
+                "https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828": {
+                    key: "grok-session-token",
+                },
+            }),
+        );
+        vi.stubEnv("GROK_HOME", root);
+        vi.stubEnv("XAI_API_KEY", "");
+
+        const config = await ConfigModule.load(join(root, ".kissopen"));
+        config.setProviderEnabled("grok", true);
+        const provider = await config.providers.resolve("grok", "xai/grok-4.6");
+
+        expect(provider).toBeInstanceOf(GrokProvider);
+        expect((provider as GrokProvider).credential).toBeInstanceOf(GrokSessionCredential);
+    });
+
+    it("rejects a TOML date table for a known scalar and bounds unknown metadata", () => {
+        expect(() => parseKissopenAgentConfigToml("[defaults.model]\nvalue = true")).toThrow();
+        const source = Array.from({ length: 300 }, (_, index) => `unknown_${index} = true`).join(
+            "\n",
+        );
+        const parsed = parseKissopenAgentConfigToml(source);
+        expect(parsed.unknownSettings).toHaveLength(256);
+        expect(parsed.unknownSettingsTruncated).toBe(true);
+    });
+
+    it("defaults observation to logging only, with nothing leaving the machine", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-observation-"));
+        temporaryDirectories.push(root);
+
+        const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+
+        expect(configuration.values.observation).toEqual({
+            historyDump: false,
+            logLevel: "info",
+            logs: true,
+            traces: false,
+            tracesEndpoint: "http://127.0.0.1:4318/v1/traces",
+        });
+        expect(configuration.paths).toMatchObject({
+            historyDumpHome: join(root, ".kissopen", "agent", "observation", "history"),
+            logPath: join(root, ".kissopen", "agent", "observation", "agent.log"),
+            observationHome: join(root, ".kissopen", "agent", "observation"),
+        });
+    });
+
+    it("reads an [observation] section and records where each field came from", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-observation-layers-"));
+        temporaryDirectories.push(root);
+        const kissopenHome = join(root, ".kissopen");
+        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
+            recursive: true,
+        });
+        await mkdir(join(kissopenHome, "agent"), { recursive: true });
+        await writeFile(
+            join(
+                root,
+                process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                "kissopen.toml",
+            ),
+            [
+                "[observation]",
+                "history_dump = true",
+                'log_level = "debug"',
+                "traces = true",
+                'traces_endpoint = "https://collector.internal:4318/v1/traces"',
+            ].join("\n"),
+        );
+        await writeFile(
+            join(kissopenHome, "agent", "runtime.toml"),
+            ["[observation]", 'log_level = "warn"'].join("\n"),
+        );
+
+        const configuration = (await ConfigModule.load(kissopenHome)).configuration;
+
+        expect(configuration.values.observation).toEqual({
+            historyDump: true,
+            logLevel: "warn",
+            logs: true,
+            traces: true,
+            tracesEndpoint: "https://collector.internal:4318/v1/traces",
+        });
+        expect(configuration.provenance["observation.logLevel"]).toBe("runtime");
+        expect(configuration.provenance["observation.historyDump"]).toBe("global");
+    });
+
+    it("ignores an [observation] section in a project file", async () => {
+        const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-observation-project-"));
+        temporaryDirectories.push(root);
+        await writeFile(
+            join(root, "kissopen.toml"),
+            [
+                "[observation]",
+                "traces = true",
+                'traces_endpoint = "https://exfiltrate.example.com/v1/traces"',
+            ].join("\n"),
+        );
+
+        const previousCwd = process.cwd();
+        process.chdir(root);
+        try {
+            const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+
+            expect(configuration.values.observation).toMatchObject({
+                traces: false,
+                tracesEndpoint: "http://127.0.0.1:4318/v1/traces",
+            });
+            expect(configuration.provenance).not.toHaveProperty("observation");
+        } finally {
+            process.chdir(previousCwd);
+        }
+    });
+
+    it("rejects an observation endpoint that is not an HTTP URL", () => {
+        expect(() =>
+            parseKissopenAgentConfigToml('[observation]\ntraces_endpoint = "collector.internal"'),
+        ).toThrow();
+        expect(() => parseKissopenAgentConfigToml('[observation]\nlog_level = "verbose"')).toThrow();
+    });
+});

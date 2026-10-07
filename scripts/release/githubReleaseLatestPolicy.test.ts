@@ -1,0 +1,90 @@
+import assert from "node:assert/strict";
+import { readFile, readdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
+
+const WORKFLOWS_DIRECTORY = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    ".github",
+    "workflows",
+);
+const KISSOPEN_AGENT_RELEASE_WORKFLOW = "release-kissopen-agent.yml";
+
+function occurrences(source: string, pattern: RegExp): number {
+    return [...source.matchAll(pattern)].length;
+}
+
+describe("GitHub Release latest policy", () => {
+    it("lets only KISSOPEN Agent releases mark themselves as latest", async () => {
+        const workflowNames = (await readdir(WORKFLOWS_DIRECTORY)).filter((name) =>
+            /\.ya?ml$/u.test(name),
+        );
+
+        for (const workflowName of workflowNames) {
+            const workflow = await readFile(join(WORKFLOWS_DIRECTORY, workflowName), "utf8");
+            const releaseCreates = occurrences(workflow, /gh release create\b/gu);
+            const marksLatest = occurrences(
+                workflow,
+                /--latest(?![=])\b|make_latest\s*[=:]\s*["']?true\b/gu,
+            );
+            const refusesLatest = occurrences(
+                workflow,
+                /--latest=false\b|make_latest\s*[=:]\s*["']?false\b/gu,
+            );
+
+            if (workflowName === KISSOPEN_AGENT_RELEASE_WORKFLOW) {
+                assert.equal(marksLatest, 1, "KISSOPEN Agent must explicitly publish as Latest.");
+                assert.ok(
+                    refusesLatest >= 1,
+                    "KISSOPEN Agent previews must explicitly opt out of Latest.",
+                );
+                continue;
+            }
+
+            assert.equal(
+                marksLatest,
+                0,
+                `${workflowName} must never mark a GitHub Release as Latest.`,
+            );
+            assert.equal(
+                refusesLatest,
+                releaseCreates,
+                `${workflowName} must pass --latest=false to every GitHub Release creation.`,
+            );
+        }
+    });
+});
+
+describe("KISSOPEN Agent macOS release signing", () => {
+    it("adds the temporary signing keychain to the user search list before codesigning", async () => {
+        const workflow = await readFile(
+            join(WORKFLOWS_DIRECTORY, KISSOPEN_AGENT_RELEASE_WORKFLOW),
+            "utf8",
+        );
+        const unlockKeychain = workflow.indexOf("security unlock-keychain");
+        const updateSearchList = workflow.indexOf(
+            'security list-keychains -d user -s "${keychains[@]}"',
+        );
+        const signTailcat = workflow.indexOf("codesign \\");
+
+        assert.notEqual(unlockKeychain, -1);
+        assert.notEqual(updateSearchList, -1);
+        assert.notEqual(signTailcat, -1);
+        assert.ok(unlockKeychain < updateSearchList);
+        assert.ok(updateSearchList < signTailcat);
+    });
+
+    it("verifies bare executables through notarization and strict code signatures", async () => {
+        const workflow = await readFile(
+            join(WORKFLOWS_DIRECTORY, KISSOPEN_AGENT_RELEASE_WORKFLOW),
+            "utf8",
+        );
+
+        assert.match(workflow, /notary_status[^\n]+"Accepted"/u);
+        assert.equal(occurrences(workflow, /codesign --verify --strict/gu), 4);
+        assert.doesNotMatch(workflow, /\bspctl\b/u);
+    });
+});

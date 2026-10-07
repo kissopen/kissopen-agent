@@ -1,0 +1,12 @@
+{
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
+    "ignorePatterns": [
+        "packages/kissopen-terminal/sources/profiles/claude/claude-*",
+        "packages/kissopen-terminal/sources/profiles/claude-*.md",
+        "packages/kissopen-terminal/sources/profiles/codex/codex-*",
+        "packages/kissopen-terminal/sources/profiles/codex-*.md",
+        "packages/rig-codemode-codex/native/**"
+    ],
+    "tabWidth": 4,
+    "useTabs": false
+}

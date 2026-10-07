@@ -1,0 +1,1166 @@
+import { rm, stat, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
+import {
+    agentDatabaseRows,
+    agentDatabaseRun,
+    type AgentBaseAcceptedMessage,
+    type AgentConfig,
+    type AgentKV,
+    type AgentModuleScope,
+    type AgentSystemRef,
+    type AnyAgentTool,
+} from "@kissopen/kissopen-agent-base";
+import { afterCommit, type Context } from "@steve.kite/stdlib";
+import { sql } from "drizzle-orm";
+import sharp from "sharp";
+import { describe, expect, it, vi } from "vitest";
+
+import { AbortModule } from "../../sources/abort/index.js";
+import { listBotsTool } from "../../sources/bots/tools/list_bots.js";
+import { setBotAvatarTool } from "../../sources/bots/tools/set_bot_avatar.js";
+import {
+    botMigrations,
+    BOTS_TABLE,
+    BotConflictError,
+    BotFileConflictError,
+    BotFileTooLargeError,
+    BotNotFoundError,
+    BotsModule,
+    EMPTY_BOT_USER,
+    type BotEvent,
+    type BotRecord,
+} from "../../sources/bots/index.js";
+import { ComputeModule } from "../../sources/compute/index.js";
+import { DurableFunctionsModule } from "../../sources/durableFunctions/index.js";
+import { GitModule } from "../../sources/git/index.js";
+import { HistoryModule } from "../../sources/history/index.js";
+import { SecretsModule } from "../../sources/secrets/index.js";
+import { TitlesModule } from "../../sources/titles/index.js";
+import { WorkspacesModule } from "../../sources/workspaces/index.js";
+import { projectMigrations } from "../../sources/projects/index.js";
+import { workspaceMigrations } from "../../sources/workspaces/index.js";
+import { temporaryTestConfig } from "../support/configModule.js";
+import { providersOf, sharedKV, textTurn } from "../support/fixtures.js";
+import { moduleDatabase } from "../support/moduleDatabase.js";
+import { projectsModuleFor } from "../support/projectsModule.js";
+import { ScriptedProvider, type ScriptedTurn } from "../support/ScriptedProvider.js";
+
+class BotAgents {
+    readonly configs = new Map<string, AgentConfig>();
+    readonly aborted: string[] = [];
+    readonly sent: { agentId: string; options: Record<string, unknown> }[] = [];
+
+    async send(
+        _ctx: Context,
+        agentId: string,
+        _message: unknown,
+        options: Record<string, unknown> & { readonly id: string },
+    ): Promise<{ id: string }> {
+        this.sent.push({ agentId, options: structuredClone(options) });
+        return { id: options.id };
+    }
+
+    async create(_ctx: Context, config: AgentConfig, options: { readonly id?: string } = {}) {
+        const id = options.id ?? "generatedagent";
+        if (this.configs.has(id)) throw new Error("Agent already exists.");
+        this.configs.set(id, structuredClone(config));
+        return { id };
+    }
+
+    async config(_ctx: Context, agentId: string): Promise<AgentConfig | undefined> {
+        return structuredClone(this.configs.get(agentId));
+    }
+
+    async updateMetadata(
+        _ctx: Context,
+        agentId: string,
+        update: NonNullable<AgentConfig["metadata"]>,
+    ): Promise<void> {
+        const config = this.configs.get(agentId);
+        if (config === undefined) throw new Error("Agent missing.");
+        this.configs.set(agentId, {
+            ...config,
+            metadata: { ...config.metadata, ...structuredClone(update) },
+        });
+    }
+
+    async childOf(): Promise<readonly string[]> {
+        return [];
+    }
+
+    async parentOf(): Promise<null> {
+        return null;
+    }
+
+    async abort(ctx: Context, agentId: string): Promise<void> {
+        afterCommit(ctx, () => {
+            this.aborted.push(agentId);
+        });
+    }
+
+    asRef(): AgentSystemRef {
+        return this as unknown as AgentSystemRef;
+    }
+}
+
+describe("BotsModule", () => {
+    it.each(["Release Steward", "New Bot"])(
+        "keeps a manual rename to %s when inference finishes later",
+        async (name) => {
+            let release!: () => void;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const fixture = await started("bots-rename-race", false, [
+                async function* () {
+                    await gate;
+                    yield* textTurn("<title>Scout</title>");
+                },
+            ]);
+            try {
+                const bot = await fixture.bots.create(fixture.database.context, {});
+                await fixture.accept(bot.agentId, "user", "Find useful research papers.");
+                // Acceptance returns while the independent naming request is still waiting.
+                await vi.waitFor(() =>
+                    expect(fixture.provider.sessions[0]?.requests).toHaveLength(1),
+                );
+                await fixture.bots.rename(fixture.database.context, bot.id, name, bot.version);
+                release();
+                await fixture.namingFinished();
+                expect(await fixture.bots.get(fixture.database.context, bot.id)).toMatchObject({
+                    name,
+                    nameConfigured: true,
+                    version: 2,
+                });
+                expect(fixture.agents.configs.get(bot.agentId)?.metadata?.title).toBe(name);
+            } finally {
+                release();
+                await fixture.close();
+            }
+        },
+    );
+
+    it("names an unnamed bot from only its first text-bearing user message", async () => {
+        const fixture = await started("bots-first-message", false, [
+            textTurn("<title>Scout</title>"),
+        ]);
+        try {
+            const bot = await fixture.bots.create(fixture.database.context, {});
+            expect(bot).toMatchObject({ name: "New Bot", username: "bot", nameConfigured: false });
+            expect((await stat(bot.path)).isDirectory()).toBe(true);
+            expect(fixture.agents.configs.get(bot.agentId)?.metadata?.title).toBe("New Bot");
+            await fixture.accept(bot.agentId, "system", "Internal wake-up");
+            await fixture.accept(bot.agentId, "agent", "Peer request");
+            await fixture.accept(bot.agentId, "user", "   ");
+            expect(fixture.provider.sessions).toHaveLength(0);
+            await fixture.accept(bot.agentId, "user", "Find useful research papers for me.");
+            await fixture.accept(bot.agentId, "user", "Now inspect releases instead.");
+            await fixture.namingFinished();
+            expect(await fixture.bots.get(fixture.database.context, bot.id)).toMatchObject({
+                name: "Scout",
+                nameConfigured: true,
+                version: 2,
+                id: bot.id,
+                agentId: bot.agentId,
+                workspaceId: bot.workspaceId,
+                username: bot.username,
+                path: bot.path,
+            });
+            expect(fixture.provider.sessions).toHaveLength(1);
+            expect(JSON.stringify(fixture.provider.sessions[0]?.requests)).toContain(
+                "research papers",
+            );
+            expect(JSON.stringify(fixture.provider.sessions[0]?.requests)).not.toContain(
+                "inspect releases",
+            );
+            expect(fixture.agents.configs.get(bot.agentId)?.metadata?.title).toBe("Scout");
+            expect(fixture.events).toContainEqual(
+                expect.objectContaining({
+                    type: "bot_updated",
+                    bot: expect.objectContaining({ name: "Scout" }),
+                }),
+            );
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("keeps the placeholder without retrying after an empty inference result", async () => {
+        const fixture = await started("bots-empty-name", false, [textTurn("")]);
+        try {
+            const bot = await fixture.bots.create(fixture.database.context, {});
+            await fixture.accept(bot.agentId, "user", "Find papers.");
+            await fixture.namingFinished();
+            await fixture.accept(bot.agentId, "user", "Try naming again.");
+            expect(fixture.provider.sessions).toHaveLength(1);
+            expect(await fixture.bots.get(fixture.database.context, bot.id)).toMatchObject({
+                name: "New Bot",
+                nameConfigured: false,
+                version: 1,
+            });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("migrates every existing bot to non-admin and non-system", async () => {
+        const database = moduleDatabase(botMigrations.slice(0, 2), "bots-admin-migration");
+        try {
+            await database.ready;
+            await agentDatabaseRun(
+                database.database,
+                sql`INSERT INTO ${sql.raw(BOTS_TABLE)} (
+                    id, name, username, workspace_id, workspace_version, workspace_updated_at,
+                    agent_id, path, status, avatar_source, avatar_thumbhash, order_key,
+                    version, created_at, updated_at, archived_at
+                ) VALUES (
+                    'legacybot', 'Legacy Bot', 'legacy_bot', 'legacyworkspace', 1, 100,
+                    'legacyagent', '/tmp/legacy-bot', 'active', NULL, NULL, '5',
+                    1, 100, 100, NULL
+                )`,
+            );
+
+            const migration = botMigrations[2]?.[1];
+            if (migration === undefined) throw new Error("The bot admin migration is missing.");
+            await migration(database.context, database.database);
+            const systemMigration = botMigrations[3]?.[1];
+            if (systemMigration === undefined)
+                throw new Error("The system bot migration is missing.");
+            await systemMigration(database.context, database.database);
+            const namingMigration = botMigrations[4]?.[1];
+            if (namingMigration === undefined) throw new Error("The naming migration is missing.");
+            await namingMigration(database.context, database.database);
+
+            await expect(
+                agentDatabaseRows<{
+                    readonly is_admin: number;
+                    readonly system_key: string | null;
+                    readonly name_configured: number;
+                }>(
+                    database.database,
+                    sql`SELECT is_admin, system_key, name_configured FROM ${sql.raw(BOTS_TABLE)}
+                        WHERE id = 'legacybot'`,
+                ),
+            ).resolves.toEqual([{ is_admin: 0, system_key: null, name_configured: 1 }]);
+        } finally {
+            database.close();
+        }
+    });
+
+    it("seeds one marked secretary and never replaces it after archive or deletion", async () => {
+        const fixture = await started("bots-chief-of-staff", true);
+        try {
+            await fixture.start();
+            const [chief] = await fixture.bots.list(fixture.database.context);
+            expect(chief).toMatchObject({
+                avatar: {
+                    kind: "image",
+                    source: "generated",
+                    thumbhash: expect.any(String),
+                },
+                isAdmin: true,
+                name: "小秘书",
+                status: "active",
+                systemKey: "chief_of_staff",
+                username: "secretary",
+                version: 1,
+            });
+            if (chief === undefined) throw new Error("The secretary bot was not seeded.");
+            const avatar = await fixture.bots.avatar(fixture.database.context, chief.id);
+            expect(avatar).toMatchObject({
+                contentHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+                thumbhash: chief.avatar?.thumbhash,
+                height: 256,
+                width: 256,
+            });
+            await expect(sharp(avatar?.bytes).metadata()).resolves.toMatchObject({
+                format: "webp",
+            });
+            expect(fixture.events).toEqual([
+                expect.objectContaining({
+                    type: "bot_created",
+                    bot: expect.objectContaining({ avatar: chief.avatar, version: 1 }),
+                }),
+            ]);
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "# Secretary\n\nYou are the user's persistent secretary.",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Before planning or carrying out a task, check the recipe documents in docs/recipe for relevant guidance.",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Resolve recipe/ beside the KissOpen Agent documentation README path supplied in your environment, not relative to your bot workspace",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Read every relevant recipe in full",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Execute relevant recipes automatically by default within the user's authorized task.",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Use create_project to register an existing local folder",
+            );
+            await expect(fixture.instructions(chief.agentId)).resolves.toContain(
+                "Use clone_project for GitHub repositories (owner/name) or other HTTPS Git remotes",
+            );
+
+            const archived = await fixture.bots.archive(
+                fixture.database.context,
+                chief.id,
+                chief.version,
+            );
+            await fixture.start();
+            await expect(fixture.bots.list(fixture.database.context)).resolves.toEqual([archived]);
+
+            await agentDatabaseRun(
+                fixture.database.database,
+                sql`DELETE FROM ${sql.raw(BOTS_TABLE)} WHERE id = ${chief.id}`,
+            );
+            await fixture.start();
+            await expect(fixture.bots.list(fixture.database.context)).resolves.toEqual([]);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("creates one durable folder/workspace/agent identity and derives collision-safe usernames", async () => {
+        const fixture = await started("bots-create", false);
+        try {
+            const first = await fixture.bots.create(fixture.database.context, {
+                id: "researchbot",
+                isAdmin: false,
+                name: "Research Assistant",
+            });
+            const second = await fixture.bots.create(fixture.database.context, {
+                name: "Research Assistant",
+            });
+
+            expect(first).toMatchObject({
+                id: "researchbot",
+                isAdmin: false,
+                name: "Research Assistant",
+                username: "research_assistant",
+                status: "active",
+                version: 1,
+                workspaceVersion: 1,
+            });
+            expect(second.username).toBe("research_assistant_2");
+            expect(new Set([first.id, first.workspaceId, first.agentId]).size).toBe(3);
+            await expect(stat(first.path)).resolves.toMatchObject({
+                isDirectory: expect.any(Function),
+            });
+            expect((await stat(first.path)).isDirectory()).toBe(true);
+            expect(fixture.agents.configs.get(first.agentId)).toMatchObject({
+                environment: { workingDirectory: first.path },
+                metadata: { title: "Research Assistant" },
+                modules: { compute: { cwd: first.path } },
+            });
+
+            await expect(
+                fixture.bots.create(fixture.database.context, {
+                    id: first.id,
+                    isAdmin: true,
+                    name: "Ignored retry name",
+                    username: "ignored_retry_name",
+                }),
+            ).resolves.toEqual(first);
+            await expect(
+                fixture.bots.create(fixture.database.context, {
+                    name: "Username collision",
+                    username: first.username,
+                }),
+            ).rejects.toBeInstanceOf(BotConflictError);
+            await expect(
+                fixture.bots.create(fixture.database.context, {
+                    id: first.workspaceId,
+                    name: "Workspace identity collision",
+                }),
+            ).rejects.toBeInstanceOf(BotConflictError);
+            await expect(
+                fixture.bots.create(fixture.database.context, {
+                    id: first.agentId,
+                    name: "Agent identity collision",
+                }),
+            ).rejects.toBeInstanceOf(BotConflictError);
+            expect(fixture.events.filter((event) => event.type === "bot_created")).toHaveLength(2);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("chains bot and workspace versions independently across reorder, rename, and archival", async () => {
+        const fixture = await started("bots-lifecycle", true);
+        try {
+            const first = await fixture.bots.create(fixture.database.context, {
+                name: "First Bot",
+            });
+            const second = await fixture.bots.create(fixture.database.context, {
+                name: "Second Bot",
+            });
+            const reordered = await fixture.bots.reorder(
+                fixture.database.context,
+                first.id,
+                second.id,
+                first.version,
+            );
+            expect(reordered.version).toBe(first.version + 1);
+            expect(reordered.workspaceVersion).toBe(first.workspaceVersion);
+
+            const renamed = await fixture.bots.rename(
+                fixture.database.context,
+                first.id,
+                "First Research Bot",
+                reordered.version,
+            );
+            expect(renamed.username).toBe(first.username);
+            expect(renamed.workspaceVersion).toBe(first.workspaceVersion);
+            expect(fixture.agents.configs.get(first.agentId)?.metadata?.["title"]).toBe(
+                "First Research Bot",
+            );
+
+            const unchanged = await fixture.bots.rename(
+                fixture.database.context,
+                first.id,
+                "First Research Bot",
+                renamed.version,
+            );
+            expect(unchanged).toEqual(renamed);
+
+            const archived = await fixture.bots.archive(
+                fixture.database.context,
+                first.id,
+                renamed.version,
+            );
+            expect(archived).toMatchObject({ status: "archived", archivedAt: expect.any(Number) });
+            expect(archived.workspaceVersion).toBe(first.workspaceVersion + 1);
+            expect(fixture.agents.aborted).toEqual([first.agentId]);
+            expect(fixture.agents.configs.get(first.agentId)?.metadata?.["archivedAt"]).toEqual(
+                expect.any(Number),
+            );
+            expect((await stat(first.path)).isDirectory()).toBe(true);
+
+            await expect(
+                fixture.bots.archive(fixture.database.context, first.id, archived.version),
+            ).resolves.toEqual(archived);
+            expect(fixture.agents.aborted).toEqual([first.agentId]);
+
+            const restored = await fixture.bots.unarchive(
+                fixture.database.context,
+                first.id,
+                archived.version,
+            );
+            expect(restored.status).toBe("active");
+            expect(restored.archivedAt).toBeUndefined();
+            expect(fixture.agents.configs.get(first.agentId)?.metadata?.["archivedAt"]).toBeNull();
+            expect(fixture.events.at(-1)).toMatchObject({ type: "bot_updated", bot: restored });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("normalizes, persists, versions, and clears avatar assets", async () => {
+        const fixture = await started("bots-avatar", true);
+        try {
+            const created = await fixture.bots.create(fixture.database.context, {
+                name: "Avatar Bot",
+            });
+            const updated = await fixture.bots.setAvatar(
+                fixture.database.context,
+                created.id,
+                await png(40, 100, 220),
+                "image/png",
+                created.version,
+            );
+            expect(updated.avatar).toEqual({
+                kind: "image",
+                source: "user",
+                thumbhash: expect.any(String),
+            });
+            expect(updated.workspaceVersion).toBe(created.workspaceVersion);
+            const asset = await fixture.bots.avatar(fixture.database.context, created.id);
+            // Whatever a bot is given, what the catalog stores is a WebP.
+            expect(asset).toMatchObject({
+                contentHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+                etag: expect.stringMatching(/^"[a-f0-9]{64}"$/u),
+                thumbhash: updated.avatar?.thumbhash,
+            });
+            await expect(sharp(asset?.bytes).metadata()).resolves.toMatchObject({ format: "webp" });
+
+            await expect(
+                fixture.bots.clearAvatar(fixture.database.context, created.id, created.version),
+            ).rejects.toBeInstanceOf(BotConflictError);
+            const cleared = await fixture.bots.clearAvatar(
+                fixture.database.context,
+                created.id,
+                updated.version,
+            );
+            expect(cleared.avatar).toBeUndefined();
+            await expect(
+                fixture.bots.avatar(fixture.database.context, created.id),
+            ).resolves.toBeUndefined();
+            expect(fixture.events.filter((event) => event.type === "bot_updated")).toHaveLength(2);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("lets a bot set its own avatar and refuses everyone else", async () => {
+        const fixture = await started("bots-own-avatar", true);
+        try {
+            const created = await fixture.bots.create(fixture.database.context, {
+                name: "Self Portrait",
+            });
+            const updated = await fixture.bots.setAvatarForAgent(
+                fixture.database.context,
+                created.agentId,
+                await png(10, 200, 90),
+            );
+            expect(updated.avatar).toEqual({
+                kind: "image",
+                source: "generated",
+                thumbhash: expect.any(String),
+            });
+            expect(updated.version).toBe(created.version + 1);
+            const asset = await fixture.bots.avatar(fixture.database.context, created.id);
+            await expect(sharp(asset?.bytes).metadata()).resolves.toMatchObject({ format: "webp" });
+
+            // Only the bot's own agent may set it, and an archived bot may not.
+            await expect(
+                fixture.bots.setAvatarForAgent(
+                    fixture.database.context,
+                    "notabotagentid",
+                    await png(1, 2, 3),
+                ),
+            ).rejects.toBeInstanceOf(BotNotFoundError);
+            const archived = await fixture.bots.archive(
+                fixture.database.context,
+                created.id,
+                updated.version,
+            );
+            await expect(
+                fixture.bots.setAvatarForAgent(
+                    fixture.database.context,
+                    archived.agentId,
+                    await png(4, 5, 6),
+                ),
+            ).rejects.toBeInstanceOf(BotConflictError);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("lets admins set any bot's avatar while keeping ordinary bots self-only", async () => {
+        const fixture = await started("bots-admin-avatar", true);
+        const ctx = fixture.database.context;
+        try {
+            const admin = await fixture.bots.create(ctx, { name: "Admin", isAdmin: true });
+            const ordinary = await fixture.bots.create(ctx, { name: "Ordinary" });
+            const target = await fixture.bots.create(ctx, { name: "Target" });
+            const bytes = await png(10, 20, 30);
+            await writeFile(join(admin.path, "picture.png"), bytes);
+            await writeFile(join(ordinary.path, "picture.png"), bytes);
+            const adminTool = setBotAvatarTool(fixture.bots, admin.agentId);
+            const ordinaryTool = setBotAvatarTool(fixture.bots, ordinary.agentId);
+            expect(
+                adminTool.shouldReviewInAutoMode({ path: "picture.png", botId: target.id }, ctx),
+            ).toBe(false);
+            expect(adminTool.shouldRunInFullAccessInAutoMode).toBeUndefined();
+            await expect(
+                ordinaryTool.execute(ctx, { path: "missing.png", botId: target.id }, {} as never),
+            ).rejects.toThrow("Only an admin bot can set another bot's avatar.");
+            await expect(
+                fixture.bots.setAvatarForAgent(ctx, ordinary.agentId, bytes, target.id),
+            ).rejects.toThrow("Only an admin bot can set another bot's avatar.");
+            expect((await fixture.bots.get(ctx, target.id))?.avatar).toBeUndefined();
+            await ordinaryTool.execute(
+                ctx,
+                { path: "picture.png", botId: ordinary.id },
+                {} as never,
+            );
+            expect((await fixture.bots.get(ctx, ordinary.id))?.avatar?.source).toBe("generated");
+
+            await adminTool.execute(ctx, { path: "picture.png", botId: target.id }, {} as never);
+            const updated = await fixture.bots.get(ctx, target.id);
+            expect(updated).toMatchObject({
+                version: target.version + 1,
+                avatar: { source: "generated" },
+            });
+            expect((await fixture.bots.get(ctx, admin.id))?.avatar).toBeUndefined();
+            const archived = await fixture.bots.archive(ctx, target.id, updated!.version);
+            await adminTool.execute(ctx, { path: "picture.png", botId: target.id }, {} as never);
+            expect(await fixture.bots.get(ctx, target.id)).toMatchObject({
+                status: "archived",
+                version: archived.version + 1,
+            });
+            await expect(
+                adminTool.execute(ctx, { path: "picture.png", botId: "missingbot" }, {} as never),
+            ).rejects.toBeInstanceOf(BotNotFoundError);
+            await fixture.bots.archive(ctx, admin.id, admin.version);
+            await expect(
+                adminTool.execute(ctx, { path: "picture.png", botId: target.id }, {} as never),
+            ).rejects.toThrow("An archived bot cannot change avatars.");
+            await expect(
+                fixture.bots.setAvatarForAgent(ctx, admin.agentId, bytes, target.id),
+            ).rejects.toBeInstanceOf(BotConflictError);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("keeps admin avatar images inside the acting bot's folder", async () => {
+        const fixture = await started("bots-avatar-paths", true);
+        const ctx = fixture.database.context;
+        try {
+            const admin = await fixture.bots.create(ctx, { name: "Admin", isAdmin: true });
+            const target = await fixture.bots.create(ctx, { name: "Target" });
+            const outside = join(target.path, "picture.png");
+            await writeFile(outside, await png(10, 20, 30));
+            await symlink(outside, join(admin.path, "escape.png"));
+            const tool = setBotAvatarTool(fixture.bots, admin.agentId);
+            for (const path of [outside, "escape.png", "../target/picture.png"]) {
+                await expect(
+                    tool.execute(ctx, { path, botId: target.id }, {} as never),
+                ).rejects.toThrow("The avatar image must live inside your own folder.");
+            }
+            expect((await fixture.bots.get(ctx, target.id))?.avatar).toBeUndefined();
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("shows and filters avatar presence, including archived bots", async () => {
+        const fixture = await started("bots-avatar-list", true);
+        const ctx = fixture.database.context;
+        try {
+            const missing = await fixture.bots.create(ctx, { name: "Missing" });
+            const pictured = await fixture.bots.create(ctx, { name: "Pictured" });
+            await fixture.bots.setAvatarForAgent(ctx, pictured.agentId, await png(10, 20, 30));
+            await fixture.bots.archive(ctx, missing.id, missing.version);
+            const tool = listBotsTool(fixture.bots);
+            const all = await tool.execute(ctx, {}, {} as never);
+            expect(all.bots.map((bot) => bot.id)).toEqual([missing.id, pictured.id]);
+            expect(tool.toLLM(all)).toEqual([
+                { type: "text", text: expect.stringContaining("no avatar") },
+            ]);
+            expect(tool.toLLM(all)).toEqual([
+                { type: "text", text: expect.stringContaining("has avatar") },
+            ]);
+            expect(
+                (await tool.execute(ctx, { hasAvatar: false }, {} as never)).bots.map(
+                    (bot) => bot.id,
+                ),
+            ).toEqual([missing.id]);
+            expect(
+                (await tool.execute(ctx, { hasAvatar: true }, {} as never)).bots.map(
+                    (bot) => bot.id,
+                ),
+            ).toEqual([pictured.id]);
+            expect(tool.toLLM({ bots: [] })).toEqual([{ type: "text", text: "No bots found." }]);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("keeps creation visible but allows only people and admin bots to use it", async () => {
+        const fixture = await started("bots-tools", true);
+        try {
+            const nonAdmin = await fixture.bots.create(fixture.database.context, {
+                name: "Ordinary Toolbelt",
+            });
+            const roster = ["list_bots", "create_bot", "send_bot_message"];
+            await expect(fixture.tools(nonAdmin.agentId)).resolves.toEqual([
+                ...roster,
+                "set_bot_avatar",
+            ]);
+            await expect(fixture.executeCreate(nonAdmin.agentId, "Denied Child")).rejects.toThrow(
+                "Only an admin bot can create other bots. There are no admin bots on this installation.",
+            );
+
+            const admin = await fixture.bots.create(fixture.database.context, {
+                isAdmin: true,
+                name: "Admin Toolbelt",
+            });
+            await expect(
+                fixture.executeCreate(nonAdmin.agentId, "Still Denied Child"),
+            ).rejects.toThrow(
+                `Only an admin bot can create other bots. Admin bots on this installation:\n- Admin Toolbelt — id ${admin.id}`,
+            );
+            await expect(fixture.tools(admin.agentId)).resolves.toEqual([
+                ...roster,
+                "set_bot_avatar",
+            ]);
+            await expect(
+                fixture.executeCreate(admin.agentId, "Admin Child"),
+            ).resolves.toMatchObject({
+                isAdmin: false,
+                name: "Admin Child",
+            });
+            // A person's own agent runs the roster but has no picture of its own to set.
+            await expect(fixture.tools("someoneelsesagent")).resolves.toEqual(roster);
+            await expect(
+                fixture.executeCreate("someoneelsesagent", "Human Child"),
+            ).resolves.toMatchObject({ isAdmin: false, name: "Human Child" });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("gives a bot without a model the sending agent's, and never overrides one it has", async () => {
+        const fixture = await started("bots-sender-model", true);
+        try {
+            const shared = sharedKV();
+            const sender = {
+                agent: {
+                    id: "chiefagent",
+                    provider: "codex",
+                    model: "openai/gpt-5.6-sol",
+                    effort: "medium",
+                } as AgentModuleScope["agent"],
+                sharedKV: shared,
+            };
+            const context = fixture.database.context;
+            // An agent's message to a bot it has just made is the bot's first: it carries the
+            // sender's selection, because the bot has none of its own to run on.
+            const fresh = await fixture.bots.create(context, { name: "Deal Expert" });
+            await fixture.bots.sendMessage(context, sender, fresh.id, "Are you ready?", "firstmsg");
+            expect(fixture.agents.sent.at(-1)).toEqual({
+                agentId: fresh.agentId,
+                options: expect.objectContaining({
+                    id: "firstmsg",
+                    provider: "codex",
+                    model: "openai/gpt-5.6-sol",
+                    effort: "medium",
+                }),
+            });
+            // Once it has one, later agent messages leave it alone.
+            await fixture.bots.sendMessage(context, sender, fresh.id, "Next task.", "secondmsg");
+            expect(fixture.agents.sent.at(-1)?.options).not.toHaveProperty("model");
+
+            // A bot a person already chose a model for keeps it.
+            const chosen = await fixture.bots.create(context, { name: "Researcher" });
+            await fixture.accept(chosen.agentId, "user", "Find papers.", {
+                model: "openai/gpt-5.6-terra",
+                shared,
+            });
+            await fixture.bots.sendMessage(context, sender, chosen.id, "Help me.", "thirdmsg");
+            expect(fixture.agents.sent.at(-1)).toEqual({
+                agentId: chosen.agentId,
+                options: expect.not.objectContaining({ model: expect.anything() }),
+            });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("contributes the bot's current identity only to its own agent instructions", async () => {
+        const fixture = await started("bots-identity-instructions", true);
+        try {
+            const created = await fixture.bots.create(fixture.database.context, {
+                id: "identitybot",
+                name: "Research Assistant",
+                username: "research_assistant",
+            });
+
+            await expect(fixture.instructions("someoneelsesagent")).resolves.toBe("");
+            // A bot with no settings and no files reads its identity and how to keep its memory.
+            await expect(fixture.instructions(created.agentId)).resolves.toBe(
+                [
+                    "# Bot identity",
+                    "",
+                    'You are the persistent bot named "Research Assistant". Use this bot identity when referring to yourself. KissOpen is the runtime that powers you, not your bot name.',
+                    "- Bot ID: `identitybot`",
+                    "- Username: `research_assistant`",
+                    "",
+                    "# Keeping your memory",
+                    "",
+                    "MEMORY.md at the root of your folder is your long-term memory, and you read it at the start of every turn. When you learn something that should outlast this conversation — a preference, a decision, a standing fact about the person or your work — update it with your file tools. Keep it short, current, and organized: rewrite or remove entries that are stale instead of appending forever. Never store secrets or credentials in it.",
+                ].join("\n"),
+            );
+
+            const renamed = await fixture.bots.rename(
+                fixture.database.context,
+                created.id,
+                "Literature Scout",
+                created.version,
+            );
+            expect(renamed.username).toBe("research_assistant");
+            await expect(fixture.instructions(created.agentId)).resolves.toContain(
+                'You are the persistent bot named "Literature Scout".',
+            );
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("changes a bot's settings as one mutation and reads them at the start of every turn", async () => {
+        const fixture = await started("bots-settings", true);
+        try {
+            const context = fixture.database.context;
+            const created = await fixture.bots.create(context, { name: "Researcher" });
+            expect(created).toMatchObject({ description: "", user: EMPTY_BOT_USER });
+            expect(created).not.toHaveProperty("style");
+            expect(created).not.toHaveProperty("model");
+
+            const user = { name: "Steve", language: "中文", note: "Lives in Berlin", background: "" };
+            const changed = await fixture.bots.update(
+                context,
+                created.id,
+                { description: "Finds papers.", style: "concise", user },
+                created.version,
+            );
+            expect(changed).toMatchObject({
+                version: created.version + 1,
+                description: "Finds papers.",
+                style: "concise",
+                user,
+                name: "Researcher",
+            });
+            // The same values again are no change at all.
+            const same = await fixture.bots.update(
+                context,
+                created.id,
+                { description: "Finds papers.", style: "concise" },
+                changed.version,
+            );
+            expect(same.version).toBe(changed.version);
+            // A stale version is refused and changes nothing.
+            await expect(
+                fixture.bots.update(context, created.id, { description: "Other" }, created.version),
+            ).rejects.toBeInstanceOf(BotConflictError);
+
+            const instructions = await fixture.instructions(created.agentId);
+            expect(instructions).toContain("# Your role\n\nWhat you are for: Finds papers.");
+            expect(instructions).toContain("Answer in this style — Concise:");
+            expect(instructions).toContain("- Address them as: Steve");
+            expect(instructions).toContain("- Preferred language: 中文");
+            expect(instructions).toContain("- Note: Lives in Berlin");
+            expect(instructions).not.toContain("- Background:");
+
+            // Clearing the style, and a new name, in one step; the conversation follows the name.
+            const renamed = await fixture.bots.update(
+                context,
+                created.id,
+                { name: "Paper Scout", style: null },
+                changed.version,
+            );
+            expect(renamed.version).toBe(changed.version + 1);
+            expect(renamed).not.toHaveProperty("style");
+            expect(renamed.nameConfigured).toBe(true);
+            expect(fixture.agents.configs.get(created.agentId)?.metadata?.["title"]).toBe(
+                "Paper Scout",
+            );
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("runs messages from other agents on the bot's own model when it has one", async () => {
+        const fixture = await started("bots-own-model", true);
+        try {
+            const context = fixture.database.context;
+            const sender = {
+                agent: {
+                    id: "chiefagent",
+                    provider: "codex",
+                    model: "openai/gpt-5.6-sol",
+                    effort: "medium",
+                } as AgentModuleScope["agent"],
+                sharedKV: sharedKV(),
+            };
+            const created = await fixture.bots.create(context, { name: "Designer" });
+            const withModel = await fixture.bots.update(
+                context,
+                created.id,
+                { model: { providerId: "claude", modelId: "anthropic/opus-5", effort: null } },
+                created.version,
+            );
+            expect(withModel.model).toEqual({
+                providerId: "claude",
+                modelId: "anthropic/opus-5",
+                effort: null,
+            });
+            await fixture.bots.sendMessage(context, sender, created.id, "Draw a logo.", "m1");
+            await fixture.bots.sendMessage(context, sender, created.id, "And another.", "m2");
+            for (const sent of fixture.agents.sent.slice(-2)) {
+                expect(sent.options).toMatchObject({ provider: "claude", model: "anthropic/opus-5" });
+                expect(sent.options).not.toHaveProperty("effort");
+            }
+            // Back to Auto: the ordinary rule for a bot that has already run on a model.
+            await fixture.bots.update(context, created.id, { model: null }, withModel.version);
+            await fixture.bots.sendMessage(context, sender, created.id, "Thanks.", "m3");
+            expect(fixture.agents.sent.at(-1)?.options).not.toHaveProperty("model");
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("keeps core files with compare-and-swap and a history, and reads them every turn", async () => {
+        const fixture = await started("bots-core-files", true);
+        try {
+            const context = fixture.database.context;
+            const bot = await fixture.bots.create(context, { name: "Mentor" });
+            const empty = await fixture.bots.files(context, bot.id);
+            expect(empty.map((file) => file.name)).toEqual([
+                "SOUL.md",
+                "IDENTITY.md",
+                "AGENTS.md",
+                "MEMORY.md",
+                "USER.md",
+            ]);
+            expect(empty.every((file) => file.sha256 === null && !file.locked)).toBe(true);
+
+            const soul = await fixture.bots.writeFile(context, bot.id, "SOUL.md", "Patient.", null);
+            expect(soul).toMatchObject({ name: "SOUL.md", content: "Patient.", locked: false });
+            // An edit that did not start from the file as it is now is refused.
+            await expect(
+                fixture.bots.writeFile(context, bot.id, "SOUL.md", "Harsh.", null),
+            ).rejects.toMatchObject({ file: { content: "Patient." } });
+            await expect(
+                fixture.bots.writeFile(context, bot.id, "SOUL.md", "x".repeat(33 * 1024), soul.sha256),
+            ).rejects.toBeInstanceOf(BotFileTooLargeError);
+            await fixture.bots.writeFile(context, bot.id, "SOUL.md", "Patient and kind.", soul.sha256);
+
+            // The bot edits its memory itself; the change is noticed and kept as history.
+            await writeFile(join(bot.path, "MEMORY.md"), "- Prefers short answers.\n");
+            await writeFile(join(bot.path, "AGENTS.md"), "Always cite sources.\n");
+            const instructions = await fixture.instructions(bot.agentId);
+            expect(instructions).toContain("# Your character (SOUL.md)\n\nPatient and kind.");
+            expect(instructions).toContain("# What you remember (MEMORY.md)\n\n- Prefers short answers.");
+            // AGENTS.md reaches the bot through ordinary AGENTS.md loading, not twice.
+            expect(instructions).not.toContain("Always cite sources.");
+
+            const soulHistory = await fixture.bots.fileRevisions(context, bot.id, "SOUL.md");
+            expect(soulHistory.map((revision) => revision.source)).toEqual(["user", "user"]);
+            const memoryHistory = await fixture.bots.fileRevisions(context, bot.id, "MEMORY.md");
+            expect(memoryHistory).toHaveLength(1);
+            expect(memoryHistory[0]?.source).toBe("external");
+            const first = await fixture.bots.fileRevision(
+                context,
+                bot.id,
+                "SOUL.md",
+                soulHistory[1]?.id ?? "",
+            );
+            expect(first?.content).toBe("Patient.");
+            // Reading again without a change records nothing more.
+            await fixture.bots.files(context, bot.id);
+            await expect(
+                fixture.bots.fileRevisions(context, bot.id, "MEMORY.md"),
+            ).resolves.toHaveLength(1);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    it("shows built-in guidance as a locked AGENTS.md and copies it into an editable bot", async () => {
+        const fixture = await started("bots-copy", true);
+        try {
+            const context = fixture.database.context;
+            await fixture.start();
+            const chief = (await fixture.bots.list(context)).find(
+                (bot) => bot.systemKey === "chief_of_staff",
+            );
+            if (chief === undefined) throw new Error("The built-in bot was not seeded.");
+            await fixture.bots.update(
+                context,
+                chief.id,
+                { description: "Keeps my week moving.", style: "friendly" },
+                chief.version,
+            );
+            await fixture.bots.writeFile(context, chief.id, "MEMORY.md", "- Monday standups.", null);
+            const agents = (await fixture.bots.files(context, chief.id)).find(
+                (file) => file.name === "AGENTS.md",
+            );
+            expect(agents?.locked).toBe(true);
+            expect(agents?.content).toContain("# Secretary");
+            await expect(
+                fixture.bots.writeFile(context, chief.id, "AGENTS.md", "Mine now.", agents?.sha256 ?? null),
+            ).rejects.toBeInstanceOf(BotFileConflictError);
+            await expect(
+                fixture.bots.fileRevisions(context, chief.id, "AGENTS.md"),
+            ).resolves.toEqual([]);
+
+            const { bot: copy, created } = await fixture.bots.copy(context, chief.id, {
+                id: "copiedsecretary",
+            });
+            expect(created).toBe(true);
+            expect(copy).toMatchObject({
+                name: `Copy of ${chief.name}`,
+                isAdmin: false,
+                description: "Keeps my week moving.",
+                style: "friendly",
+            });
+            expect(copy.systemKey).toBeUndefined();
+            expect(copy.avatar).toBeDefined();
+            const copied = await fixture.bots.files(context, copy.id);
+            expect(copied.find((file) => file.name === "AGENTS.md")).toMatchObject({
+                locked: false,
+                content: agents?.content,
+            });
+            expect(copied.find((file) => file.name === "MEMORY.md")?.content).toBe(
+                "- Monday standups.",
+            );
+            await fixture.bots.writeFile(
+                context,
+                copy.id,
+                "AGENTS.md",
+                "My own rules.",
+                copied.find((file) => file.name === "AGENTS.md")?.sha256 ?? null,
+            );
+            // Copying again with the same ID returns the copy already made.
+            const again = await fixture.bots.copy(context, chief.id, { id: "copiedsecretary" });
+            expect(again.created).toBe(false);
+            expect(again.bot.id).toBe(copy.id);
+        } finally {
+            await fixture.close();
+        }
+    });
+});
+
+async function started(name: string, workspacesEnabled: boolean, script: ScriptedTurn[] = []) {
+    const provider = new ScriptedProvider(script);
+    const config = await temporaryTestConfig(
+        `[features]\nworkspaces = ${workspacesEnabled ? "true" : "false"}\n`,
+        {
+            inference: {
+                providers: providersOf(provider),
+                models: [
+                    {
+                        providerId: "scripted",
+                        id: "anthropic/sonnet-5",
+                        name: "Sonnet",
+                        effortLevels: ["off"],
+                        defaultEffort: "off",
+                    },
+                ],
+            },
+        },
+    );
+    const database = moduleDatabase(
+        [...projectMigrations, ...workspaceMigrations, ...botMigrations],
+        name,
+    );
+    await database.ready;
+    const compute = new ComputeModule(config, new SecretsModule());
+    const abort = new AbortModule(compute);
+    const agents = new BotAgents();
+    abort.beforeStart(database.context, agents.asRef());
+    const git = new GitModule();
+    const projects = projectsModuleFor(config, git);
+    const workspaces = new WorkspacesModule(
+        config,
+        projects,
+        git,
+        abort,
+        new DurableFunctionsModule(),
+    );
+    const titles = new TitlesModule(config, new HistoryModule(), workspaces);
+    const naming = vi.spyOn(titles, "suggestBotName");
+    const bots = new BotsModule(config, abort, titles, projects, workspaces);
+    const hooks = bots.beforeStart(database.context, agents.asRef());
+    const events: BotEvent[] = [];
+    const agentKVs = new Map<string, AgentKV>();
+    bots.onEvent((_ctx, event) => {
+        events.push(event);
+    });
+    const toolsFor = async (agentId: string): Promise<readonly AnyAgentTool[]> => {
+        const scope = { agent: { id: agentId } } as unknown as AgentModuleScope;
+        return (await hooks.tools?.(database.context, scope)) ?? [];
+    };
+    return {
+        agents,
+        bots,
+        database,
+        events,
+        provider,
+        accept: async (
+            agentId: string,
+            role: AgentBaseAcceptedMessage["message"]["role"],
+            text: string,
+            running?: { readonly model: string; readonly shared: AgentKV },
+        ): Promise<void> => {
+            const kv = agentKVs.get(agentId) ?? sharedKV();
+            agentKVs.set(agentId, kv);
+            const scope = {
+                agent: { id: agentId, provider: "scripted", model: running?.model },
+                kv,
+                sharedKV: running?.shared,
+            } as AgentModuleScope;
+            await database.context.inTx(async (ctx) => {
+                await hooks.messageAcceptedTransact?.(ctx, scope, {
+                    id: `message-${text}`,
+                    kind: "send",
+                    profile: null,
+                    message:
+                        role === "agent"
+                            ? {
+                                  role,
+                                  author: { id: "peeragent", description: "A peer bot" },
+                                  content: [{ type: "text", text }],
+                              }
+                            : { role, content: [{ type: "text", text }] },
+                });
+            });
+        },
+        namingFinished: async (): Promise<void> => {
+            await vi.waitFor(() => expect(naming).toHaveBeenCalled());
+            await Promise.allSettled(
+                naming.mock.results.flatMap((result) =>
+                    result.type === "return" ? [result.value] : [],
+                ),
+            );
+            // The database fixture resolves queries on the microtask queue. Drain
+            // that queue after inference so assertions observe the final transaction.
+            await new Promise<void>((resolve) => setImmediate(resolve));
+        },
+        start: async (): Promise<void> => {
+            await hooks.afterStart?.(database.context, agents.asRef());
+        },
+        tools: async (agentId: string): Promise<readonly string[]> => {
+            return (await toolsFor(agentId)).map((tool) => tool.name);
+        },
+        executeCreate: async (agentId: string, name: string): Promise<BotRecord> => {
+            const tool = (await toolsFor(agentId)).find(
+                (candidate) => candidate.name === "create_bot",
+            );
+            if (tool === undefined) throw new Error("The create_bot tool is missing.");
+            return (await tool.execute(database.context, { name }, {
+                id: `create-${name}`,
+                kv: {
+                    getOrCreate: async (
+                        _ctx: Context,
+                        _key: string,
+                        create: () => unknown,
+                    ): Promise<unknown> => await create(),
+                },
+                commit: async (_ctx: Context, result: unknown): Promise<unknown> => result,
+            } as never)) as BotRecord;
+        },
+        instructions: async (agentId: string): Promise<string> => {
+            const scope = { agent: { id: agentId } } as unknown as AgentModuleScope;
+            return (await hooks.instructions?.(database.context, scope)) ?? "";
+        },
+        close: async () => {
+            await bots.close();
+            await titles.close();
+            database.close();
+            await rm(dirname(config.configuration.paths.publicHome), {
+                force: true,
+                recursive: true,
+            });
+        },
+    };
+}
+
+async function png(red: number, green: number, blue: number): Promise<Buffer> {
+    return await sharp({
+        create: {
+            background: { alpha: 0.75, b: blue, g: green, r: red },
+            channels: 4,
+            height: 80,
+            width: 120,
+        },
+    })
+        .png()
+        .toBuffer();
+}

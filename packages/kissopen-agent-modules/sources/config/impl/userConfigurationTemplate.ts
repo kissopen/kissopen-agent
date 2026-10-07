@@ -1,0 +1,259 @@
+/**
+ * The commented starter configuration written to a fresh installation's global kissopen.toml.
+ * Every setting ships commented out so the built-in defaults keep applying until the person
+ * deliberately uncomments one.
+ */
+export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Agent.
+# Uncomment only the settings you want to change. WorPar Agent uses its built-in defaults for everything
+# left commented out.
+
+# [defaults]
+# provider = "codex"
+# model = "openai/gpt-5.6-sol"
+# effort = "medium"
+# permission_mode = "auto"
+# service_tier = "default"
+# instructions = "Additional instructions for every WorPar Agent session."
+
+# Bootstrap this standalone installation from the local profile when deploying a remote.
+# Both fields are required. Startup fills missing profile fields only; later edits are preserved.
+# Machine configuration only; not supported in team mode.
+# [profile]
+# name = "Your name"
+# email = "you@example.com"
+
+# [settings]
+# inference_max_retries = 10
+# max_collaborators = 5
+# max_collaboration_depth = 3
+# How far an agent carries on by itself between two messages from the person.
+# max_expert_calls_per_turn = 4
+# max_workflow_starts_per_turn = 2
+# max_auto_rounds = 6
+# tool_result_retention_days = 7
+# compact_completed_turns = false
+# completion_chime = false
+# daemon_heap_snapshots = false
+# durable_global_event_queue = false
+# kissopen_integration = true
+# Show the agents in the macOS menu bar while the daemon runs. Only a released WorPar Agent
+# binary carries the menu bar app; a daemon run from a source checkout never has one.
+# menu_bar = true
+# show_reasoning = false
+# show_usage = false
+
+# Ethan mode is token-max mode for token-rich users: always retry forever on every error, keep
+# consuming tokens, and survive failures providers classify as fatal. Explicit cancellation and
+# daemon shutdown still stop it.
+# [settings.ethan]
+# enabled = false
+
+# [features]
+# cross_workspace = true
+# workflows = true
+# workspaces = true
+
+# [feature.codemode]
+# enabled = false
+# engine = "monty"
+
+# Tailcat v0.4.0 opens the active WorPar Agent API transport through an account-free,
+# WireGuard-encrypted tunnel. WorPar API bearer or WorkOS authentication still applies.
+# [feature.tailcat]
+# enabled = false
+# port = 24779
+
+# Team deployments expose an authenticated TCP HTTP API instead of the private local socket.
+# [feature.team]
+# enabled = false
+# host = "0.0.0.0"
+# port = 3000
+# workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"
+# workos_organization_id = "org_01EXAMPLE"
+# owner_workos_user_id = "user_01EXAMPLE"
+
+# [workspace]
+# setup_commands = ["pnpm install"]
+# Project files copied into every workspace and re-copied whenever the project root
+# copy changes, such as gitignored .env files. Sync is one-way: the root copy wins.
+# sync = [".env"]
+# Synced like sync, and additionally protected from writing without Full access.
+# protected_sync = [".env.production"]
+
+# [theme]
+# primary = "default"
+# secondary = "dim"
+# accent = "cyan"
+# brand = "ansi:202"
+# success = "green"
+# warning = "yellow"
+# error = "red"
+
+# [network]
+# allowed_domains = ["api.example.com", "*.example.org"]
+# denied_domains = ["uploads.example.org"]
+# allowed_ports = [443]
+# allowed_loopback_ports = [3000]
+# allow_local_binding = false
+
+# Existing workspace-relative files and directories that require Full access to modify.
+# Missing paths are ignored until the session is recreated.
+# [permissions]
+# protected_paths = ["master-plans", ".env.production"]
+
+# [p2p]
+# name = "My Mac"
+# enable_direct = false
+# enable_iroh = true
+# enable_ssh = false
+# expose_api = false
+# role = "primary"
+#
+# [p2p.direct]
+# listen = "0.0.0.0:7443"
+#
+# [p2p.iroh]
+# relay_url = "https://relay.example.com"
+
+# [presence]
+# current = "available"
+# fallback = "away"
+# until = "2026-12-31T18:00:00Z"
+
+# [presence.states.available]
+# title = "Available"
+# emoji = "🟢"
+# prompt = "The user is currently available."
+# answer_wait = "15 minutes"
+
+# [providers]
+# Providers start disabled and the local credential scan enables discovered accounts.
+# default_enable = false
+
+# [providers.codex]
+# type = "codex"
+# A new local credential detection writes auto_enable = true to generated runtime.toml.
+# Set auto_enable = false to prevent automatic use.
+# auto_enable = false
+# enabled = true
+# Set hidden = true to prevent direct selection while allowing use through a smart provider.
+# The account must remain enabled for routing and quota polling. Restart after changing hidden.
+# hidden = false
+# auth_file = "/absolute/path/to/auth.json"
+# base_url = "https://api.openai.com/v1"
+# transport = "auto"
+# include_models = ["openai/gpt-5.6-sol"]
+# exclude_models = []
+# include_subagent_models = ["openai/gpt-5.6-terra"]
+# exclude_subagent_models = []
+
+# [providers.claude]
+# type = "claude"
+# enabled = true
+# config_dir = "/absolute/path/to/claude/config"
+# executable = "/absolute/path/to/claude"
+# oauth_token = "token"
+# include_models = ["anthropic/sonnet-5"]
+# exclude_models = []
+# include_subagent_models = ["anthropic/sonnet-5"]
+# exclude_subagent_models = []
+
+# [providers.grok]
+# type = "grok"
+# enabled = true
+# auth_file = "/absolute/path/to/auth.json"
+# base_url = "https://api.x.ai/v1"
+# include_models = ["xai/grok-build"]
+# exclude_models = []
+# include_subagent_models = ["xai/grok-build"]
+# exclude_subagent_models = []
+
+# DeepSeek and Kimi (Moonshot) read DEEPSEEK_API_KEY and MOONSHOT_API_KEY (or KIMI_API_KEY)
+# from the environment; a key written here wins. base_url overrides the vendor endpoint.
+# [providers.deepseek]
+# type = "deepseek"
+# enabled = true
+# api_key = "sk-..."
+# base_url = "https://api.deepseek.com"
+# include_models = ["deepseek/deepseek-chat", "deepseek/deepseek-reasoner"]
+
+# [providers.kimi]
+# type = "kimi"
+# enabled = true
+# api_key = "sk-..."
+# base_url = "https://api.moonshot.cn/v1"
+# include_models = ["moonshot/kimi-k2-turbo-preview", "moonshot/kimi-k2-thinking"]
+
+# [providers.bedrock]
+# type = "bedrock"
+# enabled = true
+# region = "us-east-1"
+# The token itself, or the name of the variable holding it. The token written here wins.
+# bearer_token = "your-amazon-bedrock-api-key"
+# bearer_token_env_var = "AWS_BEARER_TOKEN_BEDROCK"
+# Model that answers bedrock_web_search. Bedrock hosts Web Search on its GPT models, in
+# us-east-1, us-east-2, and us-west-2 only. Defaults to GPT-5.6 Luna.
+# search_model = "openai/gpt-5.6-luna"
+# include_models = ["openai/gpt-5.6-sol"]
+# exclude_models = []
+# include_subagent_models = ["openai/gpt-5.6-sol"]
+# exclude_subagent_models = []
+
+# [providers.bedrock.model_overrides."openai/gpt-5.6-sol"]
+# endpoint = "https://bedrock-mantle.us-east-1.api.aws"
+# region = "us-east-1"
+# transport = "mantle"
+
+# A smart provider is a virtual account backed by compatible concrete providers. It picks a
+# random starting account for each agent, stays there, and advances through this list only when
+# that account is signed out or has exhausted its tokens. Missing providers, different provider
+# kinds, unsupported models, and mismatched Bedrock regions are ignored for that route.
+# [providers.smart]
+# type = "smart"
+# strategy = "round_robin"
+# providers = ["codex-work", "codex-personal"]
+# enabled = true
+# include_subagent_models = ["openai/gpt-5.6-terra"]
+# exclude_subagent_models = []
+
+# Gemini powers the universal media and search tools rather than chat models, so it has no
+# [providers.*] entry. The key written here wins over the GEMINI_API_KEY environment variable.
+# [gemini]
+# api_key = "your-gemini-api-key"
+
+# [docker]
+# Choose exactly one of image or container.
+# image = "my-project-dev:latest"
+# container = "existing-container"
+# workdir = "/workspace"
+# socket_path = "/var/run/docker.sock"
+# The following options apply only when image is set.
+# name = "kissopen-agent-session"
+# env = { NODE_ENV = "development" }
+# mounts = [{ source = "/host/path", target = "/container/path", read_only = true }]
+
+`;
+
+export const MCP_TOML_TEMPLATE = `# WorPar Agent MCP servers. Changes can be reloaded without restarting the daemon.
+
+# [mcp_servers.local]
+# command = "my-mcp-server"
+# args = ["--stdio"]
+# env = { API_TOKEN = "token" }
+# cwd = "/absolute/working/directory"
+# enabled = true
+# startup_timeout_sec = 10
+# tool_timeout_sec = 30
+# enabled_tools = ["search"]
+# disabled_tools = []
+
+# [mcp_servers.remote]
+# url = "https://example.com/mcp"
+# http_headers = { "X-Client" = "WorPar Agent" }
+# bearer_token_env_var = "MCP_BEARER_TOKEN"
+# enabled = true
+# startup_timeout_sec = 10
+# tool_timeout_sec = 30
+# enabled_tools = ["search"]
+# disabled_tools = []
+`;

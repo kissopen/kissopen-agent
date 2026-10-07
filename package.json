@@ -1,0 +1,98 @@
+{
+    "name": "@kissopen/kissopen-agent-workspace",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "artifacts:product": "node scripts/package-product-artifacts.mjs",
+        "build": "pnpm --filter @kissopen/kissopen-agent-supervisor build && pnpm --filter @kissopen/kissopen-agent-client build && pnpm --filter @kissopen/kissopen-providers build && pnpm --filter @kissopen/kissopen-agent-base build && pnpm --filter @kissopen/kissopen-agent-compute build && pnpm --filter @kissopen/kissopen-agent-modules build && pnpm --filter @kissopen/kissopen-agent build && pnpm --filter kissopen-plugins build && pnpm --filter kissopen-worklets build && pnpm --filter @kissopen/kissopen-terminal build",
+        "build:bun": "pnpm build && pnpm --filter @kissopen/kissopen-agent build:bun",
+        "build:bun:all": "pnpm build && pnpm --filter @kissopen/kissopen-agent build:bun:all",
+        "build:gym": "pnpm --filter @kissopen/kissopen-terminal-gym run build:image",
+        "check": "pnpm --filter @kissopen/kissopen-providers build && pnpm --filter @kissopen/kissopen-agent-modules build && pnpm --filter @kissopen/kissopen-agent-compute build && pnpm --filter @kissopen/kissopen-agent build && pnpm --filter kissopen-plugins build && pnpm --filter kissopen-worklets build && pnpm run check:root && pnpm --recursive --filter './packages/**' run check",
+        "check:root": "tsc --noEmit -p tsconfig.json",
+        "dev": "pnpm build && node scripts/seedDevConfig.mjs && KISSOPEN_HOME_DIR=\"$PWD/.kissopen-terminal-dev/.kissopen\" node packages/kissopen-agent/dist/cli.js reload && KISSOPEN_HOME_DIR=\"$PWD/.kissopen-terminal-dev/.kissopen\" pnpm start",
+        "format": "oxfmt --write .",
+        "format:check": "oxfmt --check .",
+        "link:global": "pnpm build:bun && pnpm --dir packages/kissopen-terminal link --global && pnpm --dir packages/kissopen-terminal exec tsx scripts/install-local-agent.ts && node .agent/skills/local-agent/reload.mjs",
+        "lint": "oxlint .",
+        "observability:down": "node scripts/observability.mjs down",
+        "observability:restart": "node scripts/observability.mjs restart",
+        "observability:status": "node scripts/observability.mjs status",
+        "observability:up": "node scripts/observability.mjs up",
+        "prepare": "husky",
+        "release": "TMPDIR=\"$PWD/.local\" tsx scripts/release.ts",
+        "release:kissopen-agent-base:patch": "pnpm release kissopen-agent-base patch",
+        "release:kissopen-agent-client:patch": "pnpm release kissopen-agent-client patch",
+        "release:kissopen-agent-compute:patch": "pnpm release kissopen-agent-compute patch",
+        "release:kissopen-providers:patch": "pnpm release kissopen-providers patch",
+        "release:kissopen-plugins:patch": "pnpm release kissopen-plugins patch",
+        "start": "node packages/kissopen-terminal/dist/main.js",
+        "test": "pnpm --filter @kissopen/kissopen-agent-modules build && pnpm --filter @kissopen/kissopen-agent-compute build && pnpm run test:scripts && pnpm --recursive --filter './packages/**' run test",
+        "test:release": "pnpm --filter @kissopen/kissopen-agent-modules build && pnpm --filter @kissopen/kissopen-agent-compute build && pnpm run test:scripts && pnpm --recursive --workspace-concurrency=1 --filter './packages/**' --filter '!kissopen-plugins' --filter '!@kissopen/kissopen-providers' run test",
+        "test:gym": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym",
+        "test:gym:api": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:api",
+        "test:gym:fast": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:fast",
+        "test:gym:full": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:full",
+        "test:gym:heavy": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:heavy",
+        "test:gym:live:grok": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:live:grok",
+        "test:gym:docker": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:docker",
+        "test:gym:slow": "pnpm --filter @kissopen/kissopen-terminal-gym-tests test:gym:slow",
+        "test:live": "pnpm --filter @kissopen/kissopen-terminal test:live",
+        "test:scripts": "TMPDIR=\"$PWD/.local\" tsx --test scripts/release/*.test.ts",
+        "test:watch": "pnpm --filter @kissopen/kissopen-terminal test:watch",
+        "unlink:global": "pnpm remove --global @kissopen/kissopen-terminal"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.10",
+        "drizzle-orm": "^0.45.2",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.3.0",
+        "oxfmt": "^0.57.0",
+        "oxlint": "^1.72.0",
+        "tsx": "^4.23.0",
+        "typescript": "^5.8.3"
+    },
+    "lint-staged": {
+        "*.{cjs,cts,js,json,jsonc,jsx,md,mjs,mts,toml,ts,tsx,yaml,yml}": "oxfmt --write --no-error-on-unmatched-pattern"
+    },
+    "packageManager": "pnpm@10.28.1",
+    "pnpm": {
+        "overrides": {
+            "@kissopen/kissopen-providers": "workspace:*",
+            "@steve.kite/stdlib": "0.0.12"
+        },
+        "supportedArchitectures": {
+            "cpu": [
+                "arm64",
+                "x64"
+            ],
+            "os": [
+                "darwin",
+                "linux",
+                "win32"
+            ]
+        },
+        "onlyBuiltDependencies": [
+            "@ffmpeg-installer/darwin-arm64",
+            "@ffmpeg-installer/darwin-x64",
+            "@ffmpeg-installer/linux-arm",
+            "@ffmpeg-installer/linux-arm64",
+            "@ffmpeg-installer/linux-ia32",
+            "@ffmpeg-installer/linux-x64",
+            "@ffmpeg-installer/win32-ia32",
+            "@ffmpeg-installer/win32-x64",
+            "@ffprobe-installer/darwin-arm64",
+            "@ffprobe-installer/darwin-x64",
+            "@ffprobe-installer/linux-arm",
+            "@ffprobe-installer/linux-arm64",
+            "@ffprobe-installer/linux-ia32",
+            "@ffprobe-installer/linux-x64",
+            "@ffprobe-installer/win32-ia32",
+            "@ffprobe-installer/win32-x64"
+        ],
+        "patchedDependencies": {
+            "libsql@0.5.29": "patches/libsql@0.5.29.patch",
+            "@libsql/client@0.17.4": "patches/@libsql__client@0.17.4.patch"
+        }
+    }
+}

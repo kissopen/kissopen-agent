@@ -1,0 +1,190 @@
+name: Build and verify Windows Agent
+
+on:
+    workflow_call:
+        inputs:
+            version:
+                required: true
+                type: string
+
+permissions:
+    contents: read
+
+jobs:
+    native:
+        name: Native ${{ matrix.component }}
+        runs-on: windows-2025
+        timeout-minutes: 90
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - component: monty
+                      script: packages/kissopen-agent/scripts/build-native-monty.mjs
+                      source: packages/kissopen-agent/native/monty/**
+                      output: packages/kissopen-agent/native/target/win32-x64
+                    - component: fff
+                      script: packages/kissopen-agent/scripts/build-native-fff.mjs
+                      source: packages/kissopen-agent/native/fff/**
+                      output: packages/kissopen-agent/native/target/win32-x64
+                    - component: libsql
+                      script: packages/kissopen-agent/scripts/build-native-libsql.mjs
+                      source: packages/kissopen-agent/native/libsql/**
+                      output: packages/kissopen-agent/native/target/win32-x64
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - name: Cache native outputs by pinned source and builder
+              id: native-cache
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ${{ matrix.output }}
+                  # Bump the cache version when changing the compiler setup below. Package-only
+                  # changes reuse native outputs; every run still tests the final binary.
+                  key: windows-gnu-rust195-v2-${{ matrix.component }}-${{ hashFiles('.gitattributes', matrix.source, matrix.script, 'packages/kissopen-agent/scripts/assertWindowsSystemImports.mjs') }}
+            - name: Install GNU native build tools
+              if: steps.native-cache.outputs.cache-hit != 'true'
+              id: msys2
+              uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+              with:
+                  msystem: MINGW64
+                  install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make
+            - name: Select the pinned Windows toolchain
+              if: steps.native-cache.outputs.cache-hit != 'true'
+              env:
+                  MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+              run: |
+                  "$env:MSYS2_LOCATION\mingw64\bin" >> $env:GITHUB_PATH
+                  "$env:MSYS2_LOCATION\usr\bin" >> $env:GITHUB_PATH
+                  rustup toolchain install 1.95.0-x86_64-pc-windows-gnu --profile minimal
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Build pinned source and verify native imports
+              if: steps.native-cache.outputs.cache-hit != 'true'
+              env:
+                  BUILD_SCRIPT: ${{ matrix.script }}
+                  CARGO_BUILD_JOBS: "2"
+                  CMAKE_GENERATOR: MinGW Makefiles
+              run: node $env:BUILD_SCRIPT
+            - name: Stage native files with their repository paths
+              env:
+                  NATIVE_OUTPUT: ${{ matrix.output }}
+              run: |
+                  $destination = Join-Path native-stage $env:NATIVE_OUTPUT
+                  New-Item -ItemType Directory -Force -Path $destination | Out-Null
+                  Copy-Item -Path "$env:NATIVE_OUTPUT\*" -Destination $destination
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: windows-native-${{ matrix.component }}
+                  path: native-stage/
+                  if-no-files-found: error
+                  retention-days: 7
+
+    package:
+        name: Package and exercise standalone Agent
+        needs: native
+        runs-on: windows-2025
+        timeout-minutes: 60
+        env:
+            KISSOPEN_AGENT_RELEASE_VERSION: ${{ inputs.version }}
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+            - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              with:
+                  pattern: windows-native-*
+                  merge-multiple: true
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+            - name: Build workspace JavaScript
+              run: pnpm build
+            - name: Stage the published sandbox SDK for its native regression checks
+              run: |
+                  @'
+                  const { cpSync, mkdirSync } = require('node:fs');
+                  const { createRequire } = require('node:module');
+                  const { dirname, join, resolve } = require('node:path');
+                  const agent = createRequire(resolve('packages/kissopen-agent/package.json'));
+                  const compute = createRequire(agent.resolve('@kissopen/kissopen-agent-compute'));
+                  const platform = dirname(compute.resolve('@kissopen/kissopen-agent-supervisor-win32-x64/package.json'));
+                  const source = join(platform, 'vendor/x86_64-pc-windows-gnu/bin');
+                  const destination = 'packages/kissopen-agent-supervisor/native/target/release';
+                  mkdirSync(destination, { recursive: true });
+                  cpSync(source, destination, { recursive: true });
+                  '@ | node
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Select the built libsql binding for native regression checks
+              run: |
+                  @'
+                  const { copyFileSync } = require('node:fs');
+                  const { createRequire } = require('node:module');
+                  const { resolve } = require('node:path');
+                  const agent = createRequire(resolve('packages/kissopen-agent/package.json'));
+                  const modules = createRequire(agent.resolve('@kissopen/kissopen-agent-modules'));
+                  const client = createRequire(modules.resolve('@libsql/client'));
+                  const libsql = createRequire(client.resolve('libsql'));
+                  copyFileSync('packages/kissopen-agent/native/target/win32-x64/libsql.node', libsql.resolve('@libsql/win32-x64-msvc'));
+                  '@ | node
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Build the unsigned standalone executable
+              run: pnpm --filter @kissopen/kissopen-agent build:bun --target win32-x64
+            - name: Verify native libraries and named-pipe transports
+              run: |
+                  pnpm --filter @kissopen/kissopen-agent test:native:monty
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node --expose-gc packages/kissopen-agent/scripts/verify-native-libsql.mjs
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  pnpm --filter @kissopen/kissopen-agent exec pnpm dlx bun@1.4.0 scripts/verify-native-libsql.mjs
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node packages/kissopen-agent/scripts/verify-native-fff.mjs
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  pnpm --filter @kissopen/kissopen-agent exec pnpm dlx bun@1.4.0 scripts/verify-native-fff.mjs
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  pnpm --filter @kissopen/kissopen-agent exec pnpm dlx bun@1.4.0 scripts/verify-windows-sockets.ts
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Provision once on this disposable CI machine
+              # Hosted Windows runners are already elevated. Never run this step on a
+              # developer machine or turn a failed setup into repeated UAC retries.
+              run: |
+                  if ($env:GITHUB_ACTIONS -ne 'true') { throw 'CI only' }
+                  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+                  $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+                  if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                      throw 'The disposable runner must already be elevated for sandbox setup.'
+                  }
+                  & packages/kissopen-agent/dist/bin/kissopen-agent-win32-x64.exe sandbox setup
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  $status = & packages/kissopen-agent-supervisor/native/target/release/kissopen-agent-supervisor.exe --setup-status | ConvertFrom-Json
+                  if ($LASTEXITCODE -ne 0 -or -not $status.ready) { throw 'Sandbox setup did not complete.' }
+                  "KISSOPEN_WINDOWS_SANDBOX_HOME=$($status.stateDirectory)" >> $env:GITHUB_ENV
+                  'KISSOPEN_WINDOWS_SANDBOX_NO_PROVISION=1' >> $env:GITHUB_ENV
+            - name: Verify native sandbox enforcement
+              run: pnpm --filter @kissopen/kissopen-agent-supervisor test:native:windows
+            - name: Exercise the packaged executable
+              run: |
+                  $binary = 'packages/kissopen-agent/dist/bin/kissopen-agent-win32-x64.exe'
+                  & $binary --version
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  node packages/kissopen-agent/scripts/smoke-binary-transports.mjs $binary
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Package the tested executable and checksum
+              run: |
+                  $name = "kissopen-agent-$env:KISSOPEN_AGENT_RELEASE_VERSION-win32-x64.tar.gz"
+                  New-Item -ItemType Directory -Force release-assets | Out-Null
+                  tar -czf "release-assets/$name" -C packages/kissopen-agent/dist/bin kissopen-agent-win32-x64.exe
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  $hash = (Get-FileHash "release-assets/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+                  "$hash  $name" | Set-Content "release-assets/$name.sha256" -Encoding ascii
+                  "Unsigned Windows x64 Agent: ``$name`` (SHA-256 ``$hash``)." >> $env:GITHUB_STEP_SUMMARY
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: kissopen-agent-win32-x64
+                  path: release-assets/*
+                  if-no-files-found: error
+                  retention-days: 7

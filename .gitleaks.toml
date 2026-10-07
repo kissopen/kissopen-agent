@@ -1,0 +1,22 @@
+title = "KissOpen Agent source secret scan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "RFC 6455 public example WebSocket nonce, not a credential"
+condition = "AND"
+paths = ['''packages/kissopen-agent/tests/bun/serviceHttpTunnel\.bun\.mjs$''', '''packages/kissopen-agent-modules/tests/api/ServiceHttpTunnel\.test\.ts$''']
+stopwords = ["dGhlIHNhbXBsZSBub25jZQ"]
+
+[[allowlists]]
+description = "Database migration identifier, not key material"
+condition = "AND"
+paths = ['''packages/kissopen-agent-modules/sources/presence/PresenceDatabase\.ts$''']
+stopwords = ["003-presence-catalog"]
+
+[[allowlists]]
+description = "Documented credential validation flow, not a token value"
+condition = "AND"
+paths = ['''packages/kissopen-agent-modules/sources/services/README\.md$''']
+stopwords = ["signature/expiry/scope"]

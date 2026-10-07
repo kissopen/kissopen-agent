@@ -1,0 +1,68 @@
+{
+    "name": "@kissopen/kissopen-agent",
+    "version": "0.4.71-preview.8",
+    "description": "The Kissopen Agent daemon.",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/slopus/happy-agent.git",
+        "directory": "packages/kissopen-agent"
+    },
+    "bin": {
+        "kissopen-agent": "./dist/cli.js"
+    },
+    "files": [
+        "dist",
+        "API.md",
+        "README.md"
+    ],
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./cli": {
+            "import": "./dist/cli.js",
+            "default": "./dist/cli.js"
+        }
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "node --eval \"import('node:fs/promises').then(({ rm }) => rm('dist', { force: true, recursive: true }))\" && tsc -p tsconfig.build.json && node scripts/copy-docs.mjs",
+        "build:bun": "pnpm dlx bun@1.4.0 scripts/build-binary.ts",
+        "build:bun:all": "pnpm dlx bun@1.4.0 scripts/build-binary.ts --all",
+        "check": "tsc --noEmit",
+        "test": "vitest run --passWithNoTests",
+        "test:bun:transports": "pnpm dlx bun@1.4.0 test ./tests/bun/teamTerminalTransport.bun.mjs ./tests/bun/serviceHttpTunnel.bun.mjs",
+        "build:native:monty": "node scripts/build-native-monty.mjs",
+        "test:native:monty": "node scripts/verify-native-monty.mjs",
+        "test:native:transport": "bun scripts/verify-windows-sockets.ts",
+        "build:native:libsql": "node scripts/build-native-libsql.mjs",
+        "test:native:libsql": "node --expose-gc scripts/verify-native-libsql.mjs && bun scripts/verify-native-libsql.mjs",
+        "build:native:fff": "node scripts/build-native-fff.mjs",
+        "test:native:fff": "node scripts/verify-native-fff.mjs && bun scripts/verify-native-fff.mjs"
+    },
+    "dependencies": {
+        "@kissopen/kissopen-agent-base": "workspace:*",
+        "@kissopen/kissopen-agent-client": "workspace:*",
+        "@kissopen/kissopen-agent-compute": "workspace:*",
+        "@kissopen/kissopen-agent-modules": "workspace:*",
+        "@kissopen/kissopen-agent-supervisor": "workspace:*",
+        "@kissopen/kissopen-providers": "workspace:*",
+        "@sinclair/typebox": "^0.34.49",
+        "@steve.kite/stdlib": "0.0.12"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.10",
+        "jose": "^6.2.10",
+        "typescript": "^7.0.2",
+        "vitest": "^3.2.4"
+    },
+    "engines": {
+        "node": ">=22.19.0"
+    }
+}

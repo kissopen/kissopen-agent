@@ -1,0 +1,111 @@
+name: Verify Kissopen Agent API
+
+on:
+    pull_request:
+        paths:
+            - ".github/workflows/verify-kissopen-agent-api.yml"
+            - "packages/gym-tests/**"
+            - "packages/kissopen-agent/**"
+            - "packages/kissopen-agent-base/**"
+            - "packages/kissopen-agent-client/**"
+            - "packages/kissopen-agent-gym/**"
+            - "packages/kissopen-agent-modules/**"
+            - "package.json"
+            - "pnpm-lock.yaml"
+            - "pnpm-workspace.yaml"
+    push:
+        branches:
+            - main
+        paths:
+            - ".github/workflows/verify-kissopen-agent-api.yml"
+            - "packages/gym-tests/**"
+            - "packages/kissopen-agent/**"
+            - "packages/kissopen-agent-base/**"
+            - "packages/kissopen-agent-client/**"
+            - "packages/kissopen-agent-gym/**"
+            - "packages/kissopen-agent-modules/**"
+            - "package.json"
+            - "pnpm-lock.yaml"
+            - "pnpm-workspace.yaml"
+    workflow_dispatch:
+        inputs:
+            exhaustive:
+                description: Run the exhaustive API gym (about 45 minutes)
+                required: true
+                default: false
+                type: boolean
+
+permissions:
+    contents: read
+
+concurrency:
+    group: verify-kissopen-agent-api-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    test:
+        name: Unprivileged Linux
+        runs-on: ubuntu-24.04
+        # The full partitioned suite plus setup/preflight can exceed one hour.
+        # Keep the ordinary push/PR budget unchanged; only an explicit full gate gets headroom.
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && inputs.exhaustive && 90 || 60 }}
+        env:
+            HOME: ${{ github.workspace }}/.local/kissopen-agent-api-home
+            NODE_OPTIONS: --max-old-space-size=6144
+
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v6
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Enable Linux user namespaces
+              # Git scans and host tools use the native supervisor, just as the release tests do.
+              # The tests remain unprivileged; Ubuntu's outer AppArmor policy must allow the
+              # supervisor to create the user namespace in which it installs its own sandbox.
+              run: |
+                  if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+                      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+                  fi
+
+            - name: Build the API libraries
+              run: |
+                  pnpm --filter @kissopen/kissopen-agent-client build
+                  pnpm --filter @kissopen/kissopen-agent-modules build
+
+            - name: Check the API libraries
+              run: |
+                  pnpm --filter @kissopen/kissopen-agent-client check
+                  pnpm --filter @kissopen/kissopen-agent-modules check
+
+            - name: Build the daemon
+              run: pnpm --filter @kissopen/kissopen-agent build
+
+            - name: Check the API consumers
+              run: |
+                  pnpm --filter @kissopen/kissopen-agent check
+                  pnpm --filter @kissopen/kissopen-agent-gym check
+                  pnpm --filter @kissopen/kissopen-terminal-gym-tests check
+
+            - name: Run the Linux Files and Git preflight
+              run: |
+                  pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run \
+                    tests/kissopen_api_chaos_files.test.ts \
+                    tests/kissopen_api_files_git.test.ts \
+                    tests/kissopen_api_git_matrix.test.ts \
+                    --maxWorkers=1 \
+                    --retry=0
+
+            - name: Run the complete API gym
+              if: ${{ github.event_name == 'workflow_dispatch' && inputs.exhaustive }}
+              run: pnpm test:gym:api

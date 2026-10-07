@@ -1,0 +1,226 @@
+name: Publish kissopen-agent-compute
+
+# kissopen-agent-compute is the only package whose correctness is an operating-system claim: the
+# published native supervisor applies Seatbelt on macOS and namespaces, mounts, and seccomp on
+# Linux, and native restricted tokens and ACLs on Windows. A release proves the installed NPM
+# artifacts on all three operating systems before publishing.
+
+on:
+    push:
+        tags:
+            - "kissopen-agent-compute-v*"
+    workflow_dispatch:
+        inputs:
+            release_tag:
+                description: Existing kissopen-agent-compute release tag to publish
+                required: true
+                type: string
+
+permissions:
+    contents: read
+
+concurrency:
+    group: publish-compute-${{ inputs.release_tag || github.ref_name }}
+    cancel-in-progress: false
+
+env:
+    RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+
+jobs:
+    windows:
+        name: Published supervisor on Windows
+        runs-on: windows-2025
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - run: pnpm install --frozen-lockfile
+            - name: Set up the published Kissopen sandbox once
+              shell: pwsh
+              run: |
+                  if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') { throw 'Hosted CI only' }
+                  $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+                  if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'An already elevated runner is required' }
+                  @'
+                  import { execFileSync } from 'node:child_process';
+                  import { resolveSupervisorBinary } from '@kissopen/kissopen-agent-supervisor';
+                  execFileSync(resolveSupervisorBinary(), ['--setup'], { stdio: 'inherit', windowsHide: true });
+                  '@ | pnpm --filter @kissopen/kissopen-agent-compute exec node --input-type=module
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Check the compute SDK and exercise its Windows processes
+              env:
+                  KISSOPEN_WINDOWS_SANDBOX_NO_PROVISION: "1"
+                  KISSOPEN_AGENT_COMPUTE_WINDOWS_LIVE_TEST: "1"
+              run: |
+                  pnpm --filter @kissopen/kissopen-agent-compute check
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  pnpm --filter @kissopen/kissopen-agent-compute test
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    sandbox:
+        name: Sandbox on ${{ matrix.name }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 30
+        strategy:
+            # Both platforms report, so a one-platform sandbox regression is visible as exactly that.
+            fail-fast: false
+            matrix:
+                include:
+                    - name: macOS supervisor
+                      runner: macos-15
+                      docker: false
+                    - name: Linux supervisor
+                      runner: ubuntu-24.04
+                      docker: true
+
+        steps:
+            - name: Check out the release
+              uses: actions/checkout@v6
+              with:
+                  ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Allow only the installed supervisor to enter Linux namespaces
+              if: runner.os == 'Linux'
+              run: bash packages/kissopen-agent-supervisor/scripts/allow-published-test-namespaces.sh
+
+            - name: Run type checks
+              run: pnpm --filter @kissopen/kissopen-agent-compute check
+
+            - name: Build the SDK used by the controller-death fixture
+              if: runner.os == 'Linux'
+              run: pnpm --filter @kissopen/kissopen-agent-compute build
+
+            - name: Prove service I/O, endpoint transport, and controller-death cleanup
+              if: runner.os == 'Linux'
+              run: >-
+                  bash packages/kissopen-agent-supervisor/scripts/test-services.sh --command
+                  pnpm --filter @kissopen/kissopen-agent-compute test:live:services
+
+            - name: Run unit tests
+              env:
+                  # Keep the supervisor's universal home-directory denial away from the checkout.
+                  HOME: ${{ runner.temp }}/rig-test-home
+                  # Refuse to let an unspawnable sandbox report the boundary cases as passing.
+                  KISSOPEN_AGENT_COMPUTE_REQUIRE_SANDBOX: "1"
+              run: |
+                  mkdir -p "$HOME"
+                  pnpm --filter @kissopen/kissopen-agent-compute test
+
+            - name: Prove the host sandbox boundary
+              run: pnpm --filter @kissopen/kissopen-agent-compute test:live:host
+
+            - name: Prove the just-bash permission boundary
+              run: pnpm --filter @kissopen/kissopen-agent-compute test:live:just-bash
+
+            - name: Build the container test image
+              if: matrix.docker
+              run: >-
+                  docker build
+                  --tag kissopen-terminal-gym:local
+                  packages/kissopen-agent-compute/tests/fixtures
+
+            - name: Prove the container boundary
+              # GitHub's macOS runners have no Docker daemon, so the container backend is proven on
+              # Linux only.
+              if: matrix.docker
+              env:
+                  KISSOPEN_AGENT_COMPUTE_DOCKER_APPARMOR_PROFILE: kissopen-compute-container-tests
+              run: |
+                  bash packages/kissopen-agent-supervisor/scripts/test-container-namespaces.sh
+                  pnpm --filter @kissopen/kissopen-agent-compute test:live:docker
+
+    publish:
+        name: Publish @kissopen/kissopen-agent-compute
+        if: >-
+            startsWith(github.ref, 'refs/tags/kissopen-agent-compute-v') ||
+            (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        needs: [sandbox, windows]
+        runs-on: ubuntu-24.04
+        environment: npm
+        timeout-minutes: 20
+        permissions:
+            contents: read
+            id-token: write
+        env:
+            RELEASE_PACKAGE: kissopen-agent-compute
+            RELEASE_DIST_TAG: ${{ contains(inputs.release_tag || github.ref_name, '-preview.') && 'preview' || contains(inputs.release_tag || github.ref_name, '-nightly.') && 'nightly' || contains(inputs.release_tag || github.ref_name, '-beta.') && 'beta' || '' }}
+
+        steps:
+            - name: Check out the release
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+
+            - name: Verify the tagged commit is on main
+              run: |
+                  if ! git merge-base --is-ancestor HEAD origin/main; then
+                      echo "Release tags must point to a commit on the main branch." >&2
+                      exit 1
+                  fi
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+                  registry-url: https://registry.npmjs.org
+
+            - name: Install an npm that speaks trusted publishing
+              # OIDC publishing requires npm 11.5.1 or newer. Install the exact reviewed CLI with
+              # pnpm, then invoke its entry point directly so Node's bundled npm cannot shadow it.
+              run: |
+                  pnpm add --global npm@11.18.0
+                  npm_cli="$(pnpm root --global)/npm/bin/npm-cli.js"
+                  test "$(node "${npm_cli}" --version)" = "11.18.0"
+                  echo "NPM_CLI=${npm_cli}" >> "${GITHUB_ENV}"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Verify the tag matches the package version
+              run: pnpm exec tsx scripts/validateReleaseTag.ts
+
+            - name: Build the package
+              run: pnpm --filter @kissopen/kissopen-agent-compute build
+
+            - name: Publish with GitHub trusted publishing
+              run: |
+                  package="@kissopen/kissopen-agent-compute"
+                  version="$(node -p "require('./packages/kissopen-agent-compute/package.json').version")"
+                  distribution_tag="${RELEASE_DIST_TAG:-latest}"
+                  if [[ "$version" == *-* && "$distribution_tag" == latest ]]; then
+                      echo "A prerelease must use an explicit non-latest distribution tag." >&2
+                      exit 1
+                  fi
+                  if node "${NPM_CLI}" view "${package}@${version}" version --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
+                      echo "${package}@${version} is already published."
+                  else
+                      cd packages/kissopen-agent-compute
+                      node "${NPM_CLI}" publish \
+                          --access public \
+                          --tag "${distribution_tag}" \
+                          --provenance \
+                          --registry https://registry.npmjs.org/
+                  fi

@@ -1,0 +1,27 @@
+export {
+    startKissopenAgentDaemon,
+    type KissopenAgentDaemon,
+    type KissopenAgentShutdownReason,
+    type StartKissopenAgentDaemonOptions,
+} from "./main.js";
+export { resolveAgentDaemonPaths, type AgentDaemonPaths } from "./socket/AgentSocket.js";
+export { stopAgentDaemon, type StopAgentDaemonResult } from "./socket/stopAgentDaemon.js";
+export { AgentDaemonError } from "./lifecycle/AgentDaemonError.js";
+export { createUnixSocketFetch } from "./lifecycle/createUnixSocketFetch.js";
+export {
+    ensureAgentDaemon,
+    readTokenIfPresent,
+    type AgentDaemonConnection,
+    type AgentDaemonRestartRequest,
+    type EnsureAgentDaemonOptions,
+} from "./lifecycle/ensureAgentDaemon.js";
+export { getDaemonIdentity, type AgentDaemonIdentity } from "./lifecycle/getDaemonIdentity.js";
+export { getKissopenDaemonPaths, type KissopenDaemonPaths } from "./lifecycle/getKissopenDaemonPaths.js";
+export { runAgentDaemon, type RunAgentDaemonOptions } from "./lifecycle/runAgentDaemon.js";
+export {
+    isAgentDaemonCommand,
+    runAgentDaemonCommand,
+    type AgentDaemonCommand,
+    type RunAgentDaemonCommandOptions,
+} from "./lifecycle/runAgentDaemonCommand.js";
+export { stopLocalProtocolServer } from "./lifecycle/stopLocalProtocolServer.js";

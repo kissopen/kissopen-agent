@@ -1,0 +1,98 @@
+name: Publish package
+
+on:
+    push:
+        tags:
+            - "kissopen-agent-base-v*"
+            - "kissopen-plugins-v*"
+            - "kissopen-providers-v*"
+    workflow_dispatch:
+
+env:
+    RELEASE_PACKAGE: ${{ startsWith(github.ref_name, 'kissopen-agent-base-v') && 'kissopen-agent-base' || startsWith(github.ref_name, 'kissopen-plugins-v') && 'kissopen-plugins' || startsWith(github.ref_name, 'kissopen-providers-v') && 'kissopen-providers' || '' }}
+
+permissions:
+    contents: read
+    id-token: write
+
+concurrency:
+    group: publish-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        name: Publish selected package
+        if: startsWith(github.ref, 'refs/tags/kissopen-agent-base-v') || startsWith(github.ref, 'refs/tags/kissopen-plugins-v') || startsWith(github.ref, 'refs/tags/kissopen-providers-v')
+        runs-on: ubuntu-latest
+        environment: npm
+        timeout-minutes: 30
+        env:
+            RELEASE_DIST_TAG: ${{ contains(github.ref_name, '-beta.') && 'beta' || '' }}
+
+        steps:
+            - name: Check out the release tag
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+
+            - name: Set up Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: "1.4.0"
+
+            - name: Install Linux sandbox dependencies
+              if: ${{ !contains(github.ref_name, '-beta.') }}
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install --yes bubblewrap ripgrep socat
+                  if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+                      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+                  fi
+
+            - name: Verify the tagged commit is on main
+              run: |
+                  if ! git merge-base --is-ancestor HEAD origin/main; then
+                      echo "Release tags must point to a commit on the main branch." >&2
+                      exit 1
+                  fi
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Verify the tag matches the package version
+              env:
+                  RELEASE_TAG: ${{ github.ref_name }}
+              run: pnpm exec tsx scripts/validateReleaseTag.ts
+
+            - name: Run type checks
+              run: pnpm exec tsx scripts/runReleasePackageValidation.ts check
+
+            - name: Run tests
+              if: ${{ !contains(github.ref_name, '-beta.') }}
+              env:
+                  # Keep Sandbox Runtime's home-directory mask away from the checkout.
+                  HOME: ${{ runner.temp }}/kissopen-terminal-test-home
+              run: |
+                  mkdir -p "$HOME"
+                  pnpm exec tsx scripts/runReleasePackageValidation.ts test
+
+            - name: Build the package
+              run: |
+                  case "$RELEASE_PACKAGE" in
+                      kissopen-agent-base) pnpm --filter @kissopen/kissopen-agent-base build ;;
+                      kissopen-plugins) pnpm --filter kissopen-plugins build ;;
+                      kissopen-providers) pnpm --filter @kissopen/kissopen-providers build ;;
+                      *) pnpm run build ;;
+                  esac
+
+            - name: Publish the package
+              run: pnpm exec tsx scripts/publishPackage.ts
