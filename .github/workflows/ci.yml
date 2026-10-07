@@ -68,5 +68,12 @@ jobs:
               with:
                   bun-version: "1.4.0"
             - run: pnpm install --frozen-lockfile
+            - name: Enable Linux user namespaces
+              # The sandbox supervisor creates an unprivileged user namespace for Git scans and
+              # sandboxed commands; Ubuntu's AppArmor policy blocks that by default.
+              run: |
+                  if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+                      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+                  fi
             - run: pnpm build
             - run: pnpm --recursive --workspace-concurrency=1 ${{ matrix.filters }} run test
