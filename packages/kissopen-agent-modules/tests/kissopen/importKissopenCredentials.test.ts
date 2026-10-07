@@ -40,7 +40,8 @@ async function createHome(prefix: string): Promise<{
 
 describe("importKissopenCredentials", () => {
     it("imports current KISSOPEN credentials and server settings", async () => {
-        const { dataDirectory, home, sourceHome, targetHome } = await createHome("kissopen-import-");
+        const { dataDirectory, home, sourceHome, targetHome } =
+            await createHome("kissopen-import-");
         const source = {
             encryption: {
                 machineKey: Buffer.alloc(32, 1).toString("base64"),
@@ -99,13 +100,14 @@ describe("importKissopenCredentials", () => {
 
         expect(imported).toMatchObject({
             imported: false,
-            serverUrl: "https://api.firstcache.cc",
+            serverUrl: "http://127.0.0.1:3005",
         });
         expect(imported?.credentials).toMatchObject({ token: "existing" });
     });
 
     it("keeps newer local credentials while still importing newer KISSOPEN settings", async () => {
-        const { dataDirectory, home, sourceHome, targetHome } = await createHome("kissopen-newest-");
+        const { dataDirectory, home, sourceHome, targetHome } =
+            await createHome("kissopen-newest-");
         await mkdir(targetHome, { recursive: true });
         const sourceCredentialsPath = join(sourceHome, "access.key");
         const targetCredentialsPath = join(targetHome, "access.key");
@@ -138,7 +140,8 @@ describe("importKissopenCredentials", () => {
     });
 
     it("keeps loading credentials when imported KISSOPEN settings cannot be written", async () => {
-        const { dataDirectory, home, sourceHome, targetHome } = await createHome("kissopen-settings-");
+        const { dataDirectory, home, sourceHome, targetHome } =
+            await createHome("kissopen-settings-");
         await mkdir(targetHome, { recursive: true });
         await writeFile(
             join(targetHome, "access.key"),
@@ -172,7 +175,11 @@ describe("importKissopenCredentials", () => {
         const { dataDirectory, home } = await createHome("kissopen-absent-");
 
         expect(
-            await importKissopenCredentials({ dataDirectory, environment: {}, homeDirectory: home }),
+            await importKissopenCredentials({
+                dataDirectory,
+                environment: {},
+                homeDirectory: home,
+            }),
         ).toBeUndefined();
     });
 
@@ -229,7 +236,8 @@ describe("importKissopenCredentials", () => {
     });
 
     it("loads daemon credentials and creates its machine identity without adopting external files", async () => {
-        const { dataDirectory, home, sourceHome, targetHome } = await createHome("kissopen-no-adopt-");
+        const { dataDirectory, home, sourceHome, targetHome } =
+            await createHome("kissopen-no-adopt-");
         await mkdir(targetHome, { recursive: true });
         const source = { secret: Buffer.alloc(32, 13).toString("base64"), token: "external" };
         const target = { secret: Buffer.alloc(32, 14).toString("base64"), token: "paired" };
@@ -269,7 +277,8 @@ describe("importKissopenCredentials", () => {
     });
 
     it("skips an exact blocked external credential without overwriting or repointing a valid daemon copy", async () => {
-        const { dataDirectory, home, sourceHome, targetHome } = await createHome("kissopen-blocked-");
+        const { dataDirectory, home, sourceHome, targetHome } =
+            await createHome("kissopen-blocked-");
         await mkdir(targetHome, { recursive: true });
         const source = { secret: Buffer.alloc(32, 7).toString("base64"), token: "blocked" };
         const target = { secret: Buffer.alloc(32, 8).toString("base64"), token: "allowed" };
@@ -285,7 +294,9 @@ describe("importKissopenCredentials", () => {
         await utimes(targetPath, new Date(1_000), new Date(1_000));
         await utimes(sourcePath, new Date(2_000), new Date(2_000));
         await utimes(sourceSettingsPath, new Date(2_000), new Date(2_000));
-        const blocked = createKissopenCredentialFingerprint(parseKissopenCredentials(source).stored);
+        const blocked = createKissopenCredentialFingerprint(
+            parseKissopenCredentials(source).stored,
+        );
 
         const imported = await importKissopenCredentials({
             blockedCredentialFingerprints: new Set([blocked]),
@@ -296,7 +307,7 @@ describe("importKissopenCredentials", () => {
 
         expect(imported).toMatchObject({
             imported: false,
-            serverUrl: "https://api.firstcache.cc",
+            serverUrl: "http://127.0.0.1:3005",
         });
         expect(imported?.credentials).toMatchObject({ token: "allowed" });
         expect(await readFile(targetPath, "utf8")).toBe(JSON.stringify(target));
@@ -310,7 +321,9 @@ describe("importKissopenCredentials", () => {
         await mkdir(targetHome, { recursive: true });
         const target = { secret: Buffer.alloc(32, 9).toString("base64"), token: "blocked" };
         await writeFile(join(targetHome, "access.key"), JSON.stringify(target));
-        const blocked = createKissopenCredentialFingerprint(parseKissopenCredentials(target).stored);
+        const blocked = createKissopenCredentialFingerprint(
+            parseKissopenCredentials(target).stored,
+        );
 
         await expect(
             importKissopenCredentials({
@@ -338,7 +351,10 @@ describe("importKissopenCredentials", () => {
             JSON.stringify({ serverUrl: "https://daemon.example" }),
         );
 
-        const inspected = await inspectDaemonKissopenCredentials({ dataDirectory, environment: {} });
+        const inspected = await inspectDaemonKissopenCredentials({
+            dataDirectory,
+            environment: {},
+        });
 
         expect(inspected).toMatchObject({
             credentialFingerprint: createKissopenCredentialFingerprint(
@@ -362,6 +378,8 @@ describe("importKissopenCredentials", () => {
 
         await expect(
             readExternalKissopenCredentialFingerprint({ environment: {}, homeDirectory: home }),
-        ).resolves.toBe(createKissopenCredentialFingerprint(parseKissopenCredentials(source).stored));
+        ).resolves.toBe(
+            createKissopenCredentialFingerprint(parseKissopenCredentials(source).stored),
+        );
     });
 });
