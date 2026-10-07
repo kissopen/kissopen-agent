@@ -205,16 +205,16 @@ release tag instead of reusing or moving the failed tag.
 ## Published SDK dependencies
 
 `@kissopen/kissopen-providers`, `@kissopen/kissopen-agent-base`, `@kissopen/kissopen-agent-client`, and
-`@kissopen/kissopen-agent-compute` are always consumed from their published npm versions, even though
-their sources live in this repository. Every package that depends on one of them pins the published
-version. Never change such a dependency to `workspace:*`, and never add a new one as a workspace
-link.
+`@kissopen/kissopen-agent-compute` are not yet published under `@kissopen` on npm, so every package
+consumes them through `workspace:*` links. Once they are published, every package that depends on
+one of them pins the same published version instead. Never mix the two: either every dependent links
+the workspace copy or every dependent pins one published version.
 
 More generally, whether a dependency comes from npm or from this workspace is an explicit human
 decision. Never change a dependency from a published version to `workspace:*`, or from `workspace:*`
 to a published version, without direct human input in the current task.
 
-Every package must resolve the same published version of each of these, because pnpm gives a
+Every package must resolve the same copy of each of these, because pnpm gives a
 `workspace:*` link and a version pin two separate copies of the same package. Two copies mean two
 copies of every class, so `instanceof` fails across the seam and errors thrown by one copy are not
 recognized by the other. When a dependency must be upgraded, upgrade it in every package that
