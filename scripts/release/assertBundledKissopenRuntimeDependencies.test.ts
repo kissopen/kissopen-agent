@@ -23,7 +23,7 @@ describe("assertBundledKissopenRuntimeDependencies", () => {
                     name: "@kissopen/kissopen-terminal",
                     version: "1.2.3",
                 }),
-            /must not depend on Kissopen Agent implementation packages/u,
+            /must not depend on KISSOPEN Agent implementation packages/u,
         );
     });
 
@@ -34,7 +34,7 @@ describe("assertBundledKissopenRuntimeDependencies", () => {
                     name: "@kissopen/kissopen-terminal",
                     version: "1.2.3",
                 }),
-            /must depend on @slopus\/kissopen-agent-client/u,
+            /must depend on @kissopen\/kissopen-agent-client/u,
         );
     });
 });

@@ -16,7 +16,7 @@ describe("resolveReleasePackage", () => {
         ) as { scripts: Record<string, string> };
         assert.match(
             rootManifest.scripts["test:release"] ?? "",
-            /--filter '!@slopus\/kissopen-providers'/u,
+            /--filter '!@kissopen\/kissopen-providers'/u,
         );
         assert.match(rootManifest.scripts["test:release"] ?? "", /--filter '!kissopen-plugins'/u);
     });
@@ -27,9 +27,19 @@ describe("resolveReleasePackage", () => {
         assert.equal(target.key, "kissopen-agent-base");
         assert.equal(target.tagPrefix, "kissopen-agent-base-v");
         assert.match(target.directory, /packages\/kissopen-agent-base\/?$/u);
-        assert.deepEqual(target.buildArguments, ["--filter", "@kissopen/kissopen-agent-base", "build"]);
-        assert.deepEqual(target.checkArguments, ["--filter", "@kissopen/kissopen-agent-base", "check"]);
-        assert.deepEqual(target.testArguments, [["--filter", "@kissopen/kissopen-agent-base", "test"]]);
+        assert.deepEqual(target.buildArguments, [
+            "--filter",
+            "@kissopen/kissopen-agent-base",
+            "build",
+        ]);
+        assert.deepEqual(target.checkArguments, [
+            "--filter",
+            "@kissopen/kissopen-agent-base",
+            "check",
+        ]);
+        assert.deepEqual(target.testArguments, [
+            ["--filter", "@kissopen/kissopen-agent-base", "test"],
+        ]);
     });
 
     it("gives kissopen-agent-client its own tag namespace and package directory", () => {
@@ -68,8 +78,16 @@ describe("resolveReleasePackage", () => {
         assert.equal(target.key, "kissopen-providers");
         assert.equal(target.tagPrefix, "kissopen-providers-v");
         assert.match(target.directory, /packages\/kissopen-providers\/?$/u);
-        assert.deepEqual(target.buildArguments, ["--filter", "@kissopen/kissopen-providers", "build"]);
-        assert.deepEqual(target.checkArguments, ["--filter", "@kissopen/kissopen-providers", "check"]);
+        assert.deepEqual(target.buildArguments, [
+            "--filter",
+            "@kissopen/kissopen-providers",
+            "build",
+        ]);
+        assert.deepEqual(target.checkArguments, [
+            "--filter",
+            "@kissopen/kissopen-providers",
+            "check",
+        ]);
         assert.deepEqual(target.testArguments, [
             ["run", "test:scripts"],
             ["--filter", "@kissopen/kissopen-providers", "test"],
