@@ -235,12 +235,15 @@ New relay methods must be added to `KISSOPEN_SESSION_RPC_METHODS`, or the relay 
 method is not available; clients read the same list from the session's advertised capabilities to
 decide whether to offer the action.
 
-## The public server is api.firstcache.cc
+## The fallback server is the local self-hosted one
 
-The user moved every client's server domain from kissopen.com to `https://api.firstcache.cc`
-(2026-09-24). The agent's fallback server is that origin; the environment and saved settings still
-win, in the order `resolveKissopenServerUrl` states. Installers and release feeds stay on
-kissopen.com, so a download URL there is not a leftover to change.
+The open-source agent must never fall back to the hosted commercial service at
+`https://api.firstcache.cc`. With nothing configured, it uses the self-hosted KissOpen server on
+this machine, `http://127.0.0.1:3005`, which matches the open-source mobile and web client's
+default relay. The environment and saved settings still win, in the order
+`resolveKissopenServerUrl` states, and a CLI whose settings name no server is assumed to use that
+same default. Installers and release feeds stay on kissopen.com, so a download URL there is not a
+leftover to change.
 
 ## A cloud project's files are listed one folder at a time
 

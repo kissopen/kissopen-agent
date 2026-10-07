@@ -262,7 +262,9 @@ describe("KISSOPEN project synchronization", () => {
         );
         const projectKey = decryptKissopenAuthBundle(wrapped.slice(1), account.secretKey)!;
         expect(projectKey).not.toEqual(machineKey);
-        expect(decryptJson(requiredString(body, "metadata"), projectKey, "dataKey")).toEqual(PUBLISHED);
+        expect(decryptJson(requiredString(body, "metadata"), projectKey, "dataKey")).toEqual(
+            PUBLISHED,
+        );
     });
 
     it("uses the complete presigned S3 form without leaking the bearer token", async () => {
@@ -335,7 +337,7 @@ describe("KISSOPEN project synchronization", () => {
         const second = await fixture(configuration, "local", server);
         server.requests.length = 0;
         await expect(second.client.sync(PROJECT)).rejects.toThrow(
-            "WorPar returned a project encrypted with a different key.",
+            "KissOpen returned a project encrypted with a different key.",
         );
         expect(metadataPatches(server.requests)).toHaveLength(0);
         expect(server.find("remote-project-1").metadata).toBe(originalMetadata);

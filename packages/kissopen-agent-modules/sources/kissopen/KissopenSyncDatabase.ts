@@ -242,7 +242,7 @@ export function createKissopenSyncDatabase(ownerId = "") {
             );
             const created = await readSession(ctx, input.agentId);
             if (created === undefined) {
-                throw new Error("WorPar could not record the session it just attached.");
+                throw new Error("KissOpen could not record the session it just attached.");
             }
             return created;
         },
@@ -383,7 +383,7 @@ export function createKissopenSyncDatabase(ownerId = "") {
                     ctx,
                     agentId,
                     "event_too_large",
-                    "One moment of this conversation produced more messages than WorPar accepts.",
+                    "One moment of this conversation produced more messages than KissOpen accepts.",
                     now,
                 );
             }
@@ -393,7 +393,7 @@ export function createKissopenSyncDatabase(ownerId = "") {
                     ctx,
                     agentId,
                     "event_too_large",
-                    "A message in this conversation is too large to send to WorPar.",
+                    "A message in this conversation is too large to send to KissOpen.",
                     now,
                 );
             }
@@ -415,7 +415,7 @@ export function createKissopenSyncDatabase(ownerId = "") {
                     ctx,
                     agentId,
                     "capacity",
-                    "WorPar has not accepted messages for long enough that this conversation stopped queueing them.",
+                    "KissOpen has not accepted messages for long enough that this conversation stopped queueing them.",
                     now,
                 );
             }
@@ -507,12 +507,12 @@ export function createKissopenSyncDatabase(ownerId = "") {
         return rows.map((row) => {
             const entry = {
                 localId: row.local_id,
-                payload: parseJson(row.payload_json, "queued WorPar message"),
+                payload: parseJson(row.payload_json, "queued KissOpen message"),
                 position: Number(row.position),
             };
             if (!Value.Check(kissopenOutboxEntrySchema, entry)) {
                 throw new Error(
-                    "The WorPar outbox contains a message WorPar Agent cannot read.",
+                    "The KissOpen outbox contains a message KissOpen Agent cannot read.",
                 );
             }
             return entry;
@@ -543,7 +543,7 @@ function parseSession(row: SessionRow): KissopenSyncSession {
         updatedAt: Number(row.updated_at_ms),
     };
     if (!Value.Check(kissopenSyncSessionSchema, session)) {
-        throw new Error("The WorPar session table contains a row WorPar Agent cannot read.");
+        throw new Error("The KissOpen session table contains a row KissOpen Agent cannot read.");
     }
     return session;
 }
@@ -552,6 +552,6 @@ function parseJson(value: string, label: string): unknown {
     try {
         return JSON.parse(value) as unknown;
     } catch {
-        throw new Error(`WorPar Agent could not read a stored ${label}.`);
+        throw new Error(`KissOpen Agent could not read a stored ${label}.`);
     }
 }

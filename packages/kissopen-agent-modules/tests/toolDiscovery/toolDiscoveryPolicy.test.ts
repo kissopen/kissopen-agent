@@ -9,7 +9,14 @@ import { assembleReviewerTools } from "../../sources/compute/tools/assembleRevie
 
 const sourcesRoot = join(dirname(fileURLToPath(import.meta.url)), "../../sources");
 const eagerDirectories = ["codeMode", "compute", "expert", "userInput"];
-const eagerFiles = ["kissopen/browserTool.ts"];
+const eagerFiles = [
+    "goal/tools/create_goal.ts",
+    "goal/tools/get_goal.ts",
+    "goal/tools/goal_execution.ts",
+    "goal/tools/update_goal.ts",
+    "kissopen/browserTool.ts",
+    "kissopen/generatePasswordTool.ts",
+];
 
 interface ToolDefinition {
     readonly file: string;

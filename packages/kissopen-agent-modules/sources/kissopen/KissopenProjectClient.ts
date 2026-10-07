@@ -64,7 +64,7 @@ export class KissopenProjectHttpError extends Error {
     readonly status: number;
 
     constructor(status: number) {
-        super(`WorPar answered with HTTP ${String(status)}.`);
+        super(`KissOpen answered with HTTP ${String(status)}.`);
         this.name = "KissopenProjectHttpError";
         this.status = status;
     }
@@ -118,7 +118,7 @@ export class KissopenProjectClient {
         const state = await this.#state(project.id);
         const metadata = projectMetadata(project, this.#options.configuration.machineId);
         if (!Value.Check(kissopenProjectMetadataSchema, metadata)) {
-            throw new Error("WorPar project metadata is invalid.");
+            throw new Error("KissOpen project metadata is invalid.");
         }
         const metadataFingerprint = fingerprint(metadata);
         // Encode once: the fresh nonce makes exact ciphertext equality the create-vs-load signal.
@@ -221,7 +221,7 @@ export class KissopenProjectClient {
         const hasDataKey = typeof remote.dataEncryptionKey === "string";
         const expectedDataKey = state.encryptionVariant === "dataKey";
         if (hasDataKey !== expectedDataKey) {
-            throw new Error("WorPar returned a project encrypted with a different key.");
+            throw new Error("KissOpen returned a project encrypted with a different key.");
         }
         if (remote.metadata === encodedMetadata) return;
         const metadata = decryptKissopenPayload(
@@ -230,7 +230,7 @@ export class KissopenProjectClient {
             new Uint8Array(Buffer.from(remote.metadata, "base64")),
         );
         if (!Value.Check(kissopenProjectMetadataSchema, metadata)) {
-            throw new Error("WorPar returned a project encrypted with a different key.");
+            throw new Error("KissOpen returned a project encrypted with a different key.");
         }
     }
 
@@ -267,7 +267,7 @@ export class KissopenProjectClient {
             thumbhash: asset.thumbhash,
         };
         if (!Value.Check(kissopenProjectAvatarPreviewSchema, preview)) {
-            throw new Error("WorPar project avatar preview is invalid.");
+            throw new Error("KissOpen project avatar preview is invalid.");
         }
         const upload = await this.#jsonRequest(
             `${this.#options.configuration.serverUrl}/v1/projects/${encodeURIComponent(remoteProjectId)}/avatar/request-upload`,
@@ -353,7 +353,7 @@ function readUploadInstructions(value: unknown): UploadInstructions {
         typeof candidate.ref !== "string" ||
         typeof candidate.uploadUrl !== "string"
     ) {
-        throw new Error("WorPar returned project upload instructions it could not read.");
+        throw new Error("KissOpen returned project upload instructions it could not read.");
     }
     const formFields = readStringRecord(candidate.formFields);
     return {
@@ -367,11 +367,11 @@ function readUploadInstructions(value: unknown): UploadInstructions {
 function readStringRecord(value: unknown): Record<string, string> | undefined {
     if (value === undefined) return undefined;
     if (!isRecord(value)) {
-        throw new Error("WorPar returned invalid project upload form fields.");
+        throw new Error("KissOpen returned invalid project upload form fields.");
     }
     const entries = Object.entries(value);
     if (!entries.every((entry): entry is [string, string] => typeof entry[1] === "string")) {
-        throw new Error("WorPar returned invalid project upload form fields.");
+        throw new Error("KissOpen returned invalid project upload form fields.");
     }
     return Object.fromEntries(entries);
 }
@@ -386,7 +386,7 @@ function uploadForm(fields: Readonly<Record<string, string>>, bytes: Uint8Array)
 function readRemoteProject(value: unknown): RemoteProject {
     const candidate = isRecord(value) && value.project !== undefined ? value.project : value;
     if (!Value.Check(remoteProjectSchema, candidate)) {
-        throw new Error("WorPar returned a project WorPar Agent could not read.");
+        throw new Error("KissOpen returned a project KissOpen Agent could not read.");
     }
     return structuredClone(candidate);
 }
@@ -435,6 +435,6 @@ function encodePayload(
 function decodeKey(value: string): Uint8Array {
     const key = new Uint8Array(Buffer.from(value, "base64"));
     if (key.byteLength !== 32)
-        throw new Error("WorPar project encryption keys must be 32 bytes.");
+        throw new Error("KissOpen project encryption keys must be 32 bytes.");
     return key;
 }

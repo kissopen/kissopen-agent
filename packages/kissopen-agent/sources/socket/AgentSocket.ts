@@ -27,7 +27,9 @@ export interface BoundAgentHttpServer {
     close(): Promise<void>;
 }
 
-export function resolveAgentDaemonPaths(configuration: KissopenAgentConfiguration): AgentDaemonPaths {
+export function resolveAgentDaemonPaths(
+    configuration: KissopenAgentConfiguration,
+): AgentDaemonPaths {
     return {
         agentHome: configuration.paths.agentHome,
         socketPath: configuration.paths.socketPath,
@@ -103,7 +105,7 @@ export async function bindNodeAgentHttpServer(
     const address = server.address();
     if (address === null || typeof address === "string") {
         await closeHttpServer(server, connections);
-        throw new Error("The WorPar Agent team HTTP listener has no TCP address.");
+        throw new Error("The KissOpen Agent team HTTP listener has no TCP address.");
     }
     const boundHost = address.address;
     const boundPort = address.port;
@@ -160,12 +162,12 @@ function createAgentHttpServer(prepared: PreparedKissopenAgentRuntime): {
 export async function prepareAgentSocketPath(socketPath: string): Promise<void> {
     if (isWindowsNamedPipe(socketPath)) {
         if (await socketIsActive(socketPath)) {
-            throw new Error(`Another WorPar agent is already listening on ${socketPath}.`);
+            throw new Error(`Another KissOpen agent is already listening on ${socketPath}.`);
         }
         return;
     }
     if (Buffer.byteLength(socketPath) > 103) {
-        throw new Error("The WorPar agent socket path is too long for a Unix socket.");
+        throw new Error("The KissOpen agent socket path is too long for a Unix socket.");
     }
     await mkdir(dirname(socketPath), { mode: 0o700, recursive: true });
     let information;
@@ -186,7 +188,7 @@ export async function prepareAgentSocketPath(socketPath: string): Promise<void> 
         throw new Error(`Refusing to replace a socket owned by another user: ${socketPath}`);
     }
     if (await socketIsActive(socketPath)) {
-        throw new Error(`Another WorPar agent is already listening on ${socketPath}.`);
+        throw new Error(`Another KissOpen agent is already listening on ${socketPath}.`);
     }
     await unlink(socketPath);
 }
@@ -210,7 +212,7 @@ export async function removeInactiveAgentSocket(socketPath: string): Promise<voi
         throw new Error(`Refusing to remove a socket owned by another user: ${socketPath}`);
     }
     if (await socketIsActive(socketPath)) {
-        throw new Error(`Another WorPar agent is already listening on ${socketPath}.`);
+        throw new Error(`Another KissOpen agent is already listening on ${socketPath}.`);
     }
     await unlink(socketPath);
 }

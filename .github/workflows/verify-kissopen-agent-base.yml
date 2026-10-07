@@ -77,6 +77,11 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            # The SDK packages are workspace links, not prebuilt npm releases, so build the
+            # packages kissopen-agent-base depends on before checking it.
+            - name: Build workspace dependencies
+              run: pnpm --filter "@kissopen/kissopen-agent-base^..." build
+
             - name: Run type checks
               run: pnpm --filter @kissopen/kissopen-agent-base check
 

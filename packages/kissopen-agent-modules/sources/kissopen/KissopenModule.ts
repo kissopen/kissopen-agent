@@ -208,7 +208,7 @@ export class KissopenModule extends KissopenConnection implements AgentModule<An
     ): AgentModuleHooks => {
         if (!this.#team.enabled) return this.start(ctx, agents);
         const database = agentDatabase(ctx);
-        if (database === undefined) throw new Error("WorPar requires its agent database.");
+        if (database === undefined) throw new Error("KissOpen requires its agent database.");
         this.#context = withAgentDatabase(
             detach(ctx).named("personal-mobile-connections"),
             database,
@@ -297,7 +297,7 @@ export class KissopenModule extends KissopenConnection implements AgentModule<An
 
     async #personalConnection(user: TeamUser): Promise<KissopenConnection> {
         if (this.#closed || this.#context === undefined || this.#agents === undefined) {
-            throw new Error("WorPar mobile connections are not running.");
+            throw new Error("KissOpen mobile connections are not running.");
         }
         let entry = this.#connections.get(user.id);
         if (entry === undefined) {

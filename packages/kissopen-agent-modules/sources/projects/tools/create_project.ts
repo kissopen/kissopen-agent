@@ -25,7 +25,7 @@ export function createProjectTool(projects: ProjectsModule) {
             "add folder",
         ],
         description:
-            "Create a WorPar project from an existing local folder, whether or not it uses Git. Supply its absolute path. For a brand-new project, first create the folder with the shell under the user's permission policy, then register it here. Existing projects are reused; archived projects are restored. Setup runs in the background: use list_projects to check readiness before starting work. Use clone_project to import a remote repository.",
+            "Create a KissOpen project from an existing local folder, whether or not it uses Git. Supply its absolute path. For a brand-new project, first create the folder with the shell under the user's permission policy, then register it here. Existing projects are reused; archived projects are restored. Setup runs in the background: use list_projects to check readiness before starting work. Use clone_project to import a remote repository.",
         parameters: createProjectInputSchema,
         returnType: projectSchema,
         durable: true,
@@ -33,7 +33,7 @@ export function createProjectTool(projects: ProjectsModule) {
         shouldReviewInAutoMode: () => true,
         shouldRunInFullAccessInAutoMode: () => true,
         describeAutoPermissionAction: ({ path }: CreateProjectInput) =>
-            `registering the local folder ${quoteVisibleExact(path)} as a WorPar project. Access: host filesystem inspection, installation-wide project catalog write, and background repository setup outside the current workspace`,
+            `registering the local folder ${quoteVisibleExact(path)} as a KissOpen project. Access: host filesystem inspection, installation-wide project catalog write, and background repository setup outside the current workspace`,
         execute: async (ctx, input: CreateProjectInput, call) =>
             await projects.register(ctx, {
                 ...input,

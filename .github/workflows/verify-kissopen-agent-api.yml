@@ -78,10 +78,10 @@ jobs:
                       sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
                   fi
 
+            # The SDK packages are workspace links, not prebuilt npm releases, so the whole
+            # workspace is built in dependency order before the API libraries are checked.
             - name: Build the API libraries
-              run: |
-                  pnpm --filter @kissopen/kissopen-agent-client build
-                  pnpm --filter @kissopen/kissopen-agent-modules build
+              run: pnpm build
 
             - name: Check the API libraries
               run: |

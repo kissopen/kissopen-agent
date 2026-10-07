@@ -19,7 +19,7 @@ describe("createKissopenIntegrationVersion", () => {
 
     it("rejects a previous value that is not UUIDv7", () => {
         expect(() => createKissopenIntegrationVersion("not-a-version")).toThrow(
-            "The WorPar integration version is invalid.",
+            "The KissOpen integration version is invalid.",
         );
     });
 });

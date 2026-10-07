@@ -846,11 +846,13 @@ const resolvedValuesSchema = Type.Object(
                                 }),
                             ),
                             port: Type.Integer({ maximum: 65_535, minimum: 0 }),
-                            workosClientId: Type.String({
-                                maxLength: 160,
-                                minLength: 8,
-                                pattern: "^client_[A-Za-z0-9]+$",
-                            }),
+                            workosClientId: Type.Optional(
+                                Type.String({
+                                    maxLength: 160,
+                                    minLength: 8,
+                                    pattern: "^client_[A-Za-z0-9]+$",
+                                }),
+                            ),
                             workosOrganizationId: Type.Optional(
                                 Type.String({
                                     maxLength: 160,
@@ -1222,7 +1224,6 @@ const DEFAULT_VALUES: KissopenAgentConfigValues = {
             enabled: false,
             host: "0.0.0.0",
             port: 3_000,
-            workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
         },
     },
     gemini: {},
@@ -1401,7 +1402,7 @@ export class ConfigModule implements AgentModule {
         const directory = join(this.configuration.paths.agentHome, "services", serviceId);
         if (Buffer.byteLength(join(directory, "bridge"), "utf8") > 100) {
             throw new Error(
-                "The WorPar Agent private home is too long for a secure service socket. Use a shorter private home path.",
+                "The KissOpen Agent private home is too long for a secure service socket. Use a shorter private home path.",
             );
         }
         return { id: serviceId, directory };
@@ -2063,7 +2064,7 @@ export class ConfigModule implements AgentModule {
 
     /** Cancel every provider request owned by this daemon without coupling agents to its lifetime. */
     closeProviders(): void {
-        this.#providerLifetime.abort(new Error("The WorPar Agent runtime is shutting down."));
+        this.#providerLifetime.abort(new Error("The KissOpen Agent runtime is shutting down."));
     }
 
     /** Ask one configured account for its complete normalized vendor usage reading. */
@@ -2442,7 +2443,7 @@ export class ConfigModule implements AgentModule {
             version: options.version ?? "development",
         };
         if (!Value.Check(kissopenAgentConfigurationSchema, configuration)) {
-            throw new Error("The WorPar Agent configuration is invalid.");
+            throw new Error("The KissOpen Agent configuration is invalid.");
         }
         // Beside the daemon-owned runtime configuration: the server's word, kept for the next start.
         const served = new KissopenServedModels(
@@ -2623,7 +2624,7 @@ export function parseKissopenAgentConfigToml(source: string): {
         throw new Error(`Configuration exceeds the ${MAX_CONFIG_FILE_BYTES}-byte limit.`);
     }
     const table = parse(source);
-    if (!isTable(table)) throw new Error("The WorPar Agent configuration must be a TOML table.");
+    if (!isTable(table)) throw new Error("The KissOpen Agent configuration must be a TOML table.");
     assertTableSize(table, "configuration");
     const unknownSettings: string[] = [];
     let unknownSettingsTruncated = false;
@@ -2710,7 +2711,7 @@ export function parseKissopenAgentConfigToml(source: string): {
         ...(workspace === undefined ? {} : { workspace }),
     };
     if (!Value.Check(partialValuesSchema, values)) {
-        throw new Error("The WorPar Agent configuration contains an invalid value.");
+        throw new Error("The KissOpen Agent configuration contains an invalid value.");
     }
     return { unknownSettings, unknownSettingsTruncated, values };
 }
@@ -2813,7 +2814,7 @@ async function readConfigSource(path: string, _kind: ConfigSourceKind): Promise<
         }
         if (error instanceof Error) {
             throw new Error(
-                `Could not read WorPar Agent configuration '${path}'. ${error.message}`,
+                `Could not read KissOpen Agent configuration '${path}'. ${error.message}`,
                 { cause: error },
             );
         }
@@ -2825,7 +2826,7 @@ async function readConfigSource(path: string, _kind: ConfigSourceKind): Promise<
 
 function derivePaths(input: KissopenAgentConfigurationInput): KissopenAgentConfigurationPaths {
     if (!Value.Check(kissopenAgentConfigurationInputSchema, input)) {
-        throw new Error("The WorPar root path must be a non-empty path.");
+        throw new Error("The KissOpen root path must be a non-empty path.");
     }
     const kissopenHome = resolveKissopenHome(input);
     const publicHome = join(
@@ -2869,7 +2870,7 @@ function derivePaths(input: KissopenAgentConfigurationInput): KissopenAgentConfi
         tokenPath: join(agentHome, "token"),
     };
     if (!Value.Check(kissopenAgentConfigurationPathsSchema, paths)) {
-        throw new Error("The WorPar Agent filesystem layout is invalid.");
+        throw new Error("The KissOpen Agent filesystem layout is invalid.");
     }
     return Object.freeze(paths);
 }
@@ -2965,7 +2966,7 @@ function mergeValues(...partials: readonly PartialValues[]): KissopenAgentConfig
         throw new Error("Team deployments cannot configure a shared standalone profile.");
     }
     if (!Value.Check(kissopenAgentConfigValuesSchema, merged)) {
-        throw new Error("The merged WorPar Agent configuration is invalid.");
+        throw new Error("The merged KissOpen Agent configuration is invalid.");
     }
     return deepFreeze(merged);
 }

@@ -191,7 +191,7 @@ export async function handleKissopenSessionRpc(options: {
     }
     if (options.method === "communication") {
         if (!Value.Check(communicationSchema, options.params)) {
-            return { error: "WorPar sent an answer WorPar Agent could not read." };
+            return { error: "KissOpen sent an answer KissOpen Agent could not read." };
         }
         // A dismissal, including one from a phone that could not draw the form,
         // takes the question away rather than answering it with nothing.
@@ -200,7 +200,7 @@ export async function handleKissopenSessionRpc(options: {
             return { success: true };
         }
         if (options.params.answers === undefined) {
-            return { error: "WorPar answered a question without any answers." };
+            return { error: "KissOpen answered a question without any answers." };
         }
         // Normalised first: what is resolved and what is echoed back to every client
         // must both be the shape the clients read.

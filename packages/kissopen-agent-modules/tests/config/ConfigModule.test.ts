@@ -36,7 +36,10 @@ describe("ConfigModule", () => {
     ])("limits Mantle Sonnet to documented regions: %s %s", async (region, override, offered) => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-sonnet-regions-"));
         temporaryDirectories.push(root);
-        const folder = join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config");
+        const folder = join(
+            root,
+            process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+        );
         await mkdir(folder, { recursive: true });
         await writeFile(
             join(folder, "kissopen.toml"),
@@ -66,9 +69,12 @@ describe("ConfigModule", () => {
     it("loads standalone profile bootstrap records from machine configuration", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-profile-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -98,9 +104,12 @@ describe("ConfigModule", () => {
     it("rejects a shared standalone profile in team configuration", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-profile-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -142,7 +151,6 @@ describe("ConfigModule", () => {
             enabled: false,
             host: "0.0.0.0",
             port: 3_000,
-            workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
         });
         expect(configuration.values.settings).toMatchObject({
             ethan: { enabled: false },
@@ -154,9 +162,12 @@ describe("ConfigModule", () => {
     it("loads Ethan mode from its nested machine setting", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-ethan-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -176,9 +187,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-codemode-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -201,9 +215,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -245,9 +262,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-tailcat-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -273,9 +293,12 @@ describe("ConfigModule", () => {
             process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
             "kissopen.toml",
         );
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
 
         for (const port of [0, 65_536]) {
             await writeFile(globalConfig, `[feature.tailcat]\nport = ${String(port)}\n`);
@@ -288,9 +311,12 @@ describe("ConfigModule", () => {
     it("requires organization and owner identities when team mode is enabled", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-team-identities-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -301,7 +327,7 @@ describe("ConfigModule", () => {
         );
 
         await expect(loadKissopenAgentConfiguration(join(root, ".kissopen"))).rejects.toThrow(
-            "The merged WorPar Agent configuration is invalid.",
+            "The merged KissOpen Agent configuration is invalid.",
         );
     });
 
@@ -362,7 +388,7 @@ describe("ConfigModule", () => {
         expect(source).toContain("# [feature.team]");
         expect(source).toContain('# host = "0.0.0.0"');
         expect(source).toContain("# port = 3000");
-        expect(source).toContain('# workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"');
+        expect(source).toContain('# workos_client_id = "client_01EXAMPLE"');
         expect(source).toContain('# workos_organization_id = "org_01EXAMPLE"');
         expect(source).toContain('# owner_workos_user_id = "user_01EXAMPLE"');
     });
@@ -383,9 +409,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-layers-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await mkdir(join(kissopenHome, "agent"), { recursive: true });
         await writeFile(
             join(
@@ -473,9 +502,12 @@ describe("ConfigModule", () => {
     it("offers Fable 5.1 through Claude and Bedrock", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-fable-5-1-catalog-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -514,9 +546,12 @@ describe("ConfigModule", () => {
     it("compacts 1M Claude models at the Claude Code team's recommended 400k", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-claude-compaction-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -552,9 +587,12 @@ describe("ConfigModule", () => {
     it("offers GPT-6 Astra through Codex and Bedrock with KISSOPEN's operating profile", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-gpt-6-astra-catalog-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -616,18 +654,21 @@ describe("ConfigModule", () => {
         expect(() => parseKissopenAgentConfigToml("[settings]\nmax_collaborators = 0")).toThrow(
             "invalid value",
         );
-        expect(() => parseKissopenAgentConfigToml("[settings]\nmax_collaboration_depth = 65")).toThrow(
-            "invalid value",
-        );
-        expect(() => parseKissopenAgentConfigToml('[feature.codemode]\nengine = "unknown"')).toThrow(
-            "invalid value",
-        );
+        expect(() =>
+            parseKissopenAgentConfigToml("[settings]\nmax_collaboration_depth = 65"),
+        ).toThrow("invalid value");
+        expect(() =>
+            parseKissopenAgentConfigToml('[feature.codemode]\nengine = "unknown"'),
+        ).toThrow("invalid value");
 
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-invalid-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -637,7 +678,7 @@ describe("ConfigModule", () => {
             '[settings]\nshow_usage = "yes"\n',
         );
         await expect(ConfigModule.load(join(root, ".kissopen"))).rejects.toThrow(
-            "Could not read WorPar Agent configuration",
+            "Could not read KissOpen Agent configuration",
         );
     });
 
@@ -712,9 +753,12 @@ describe("ConfigModule", () => {
     it("prefers the configured Gemini key over the environment", async () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-gemini-"));
         temporaryDirectories.push(root);
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -827,9 +871,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-providers-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await mkdir(join(kissopenHome, "agent"), { recursive: true });
         await writeFile(
             join(
@@ -892,9 +939,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-runtime-tailcat-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await writeFile(
             join(
                 root,
@@ -971,9 +1021,12 @@ describe("ConfigModule", () => {
         const root = await mkdtemp(join(tmpdir(), "kissopen-agent-config-observation-layers-"));
         temporaryDirectories.push(root);
         const kissopenHome = join(root, ".kissopen");
-        await mkdir(join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"), {
-            recursive: true,
-        });
+        await mkdir(
+            join(root, process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config"),
+            {
+                recursive: true,
+            },
+        );
         await mkdir(join(kissopenHome, "agent"), { recursive: true });
         await writeFile(
             join(
@@ -1038,6 +1091,8 @@ describe("ConfigModule", () => {
         expect(() =>
             parseKissopenAgentConfigToml('[observation]\ntraces_endpoint = "collector.internal"'),
         ).toThrow();
-        expect(() => parseKissopenAgentConfigToml('[observation]\nlog_level = "verbose"')).toThrow();
+        expect(() =>
+            parseKissopenAgentConfigToml('[observation]\nlog_level = "verbose"'),
+        ).toThrow();
     });
 });

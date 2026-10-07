@@ -35,7 +35,7 @@ describe("AnthropicBedrockProvider", () => {
     it("classifies a hosted allowance refusal separately from temporary throttling", () => {
         const error = Object.assign(new Error("已达到本周用量上限"), {
             status: 429,
-            headers: new Headers({ "x-worpar-error-code": "usage_limit", "retry-after": "3600" }),
+            headers: new Headers({ "x-kissopen-error-code": "usage_limit", "retry-after": "3600" }),
         });
         expect(classifyAnthropicBedrockProviderError(error, 1)).toMatchObject({
             type: "out_of_tokens",

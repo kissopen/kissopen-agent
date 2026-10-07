@@ -8,14 +8,14 @@ export function checkConnectionHealthTool(module: ConnectionsModule, agentId: st
     return defineAgentTool({
         name: "check_remote_connection_health",
         defer: true,
-        capabilities: ["Configure and inspect remote WorPar Agent connections."],
+        capabilities: ["Configure and inspect remote KissOpen Agent connections."],
         searchKeywords: [
             "remote endpoint health",
             "check connection",
             "Tailcat readiness authentication",
         ],
         description:
-            "Check a configured remote WorPar Agent's authenticated health endpoint through Tailcat. Reports reachability, authentication, readiness, and protocol version without exposing credentials. Bounded to 30 seconds. Team checks use the connected Cloud user's organization-scoped token. Available only to active admin bots.",
+            "Check a configured remote KissOpen Agent's authenticated health endpoint through Tailcat. Reports reachability, authentication, readiness, and protocol version without exposing credentials. Bounded to 30 seconds. Team checks use the connected Cloud user's organization-scoped token. Available only to active admin bots.",
         parameters: Type.Object({ id: connectionIdSchema }, { additionalProperties: false }),
         returnType: connectionHealthSchema,
         durable: true,
@@ -23,7 +23,7 @@ export function checkConnectionHealthTool(module: ConnectionsModule, agentId: st
         shouldReviewInAutoMode: () => true,
         shouldRunInFullAccessInAutoMode: () => true,
         describeAutoPermissionAction: () =>
-            "contacting a configured remote WorPar Agent health endpoint over Tailcat using its configured authentication",
+            "contacting a configured remote KissOpen Agent health endpoint over Tailcat using its configured authentication",
         execute: async (ctx, { id }) => await module.checkHealth(ctx, agentId, id),
         toLLM: (result) => [{ type: "text", text: JSON.stringify(result) }],
     });

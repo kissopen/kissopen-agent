@@ -660,7 +660,7 @@ export class EventsModule implements AgentModule<AnyAgentTool> {
             type: input.type,
         });
         if (!Value.Check(eventSchema, event)) {
-            throw new Error("The WorPar agent event is invalid.");
+            throw new Error("The KissOpen agent event is invalid.");
         }
         await saveOriginCursor(database, this.#originCursor);
         await insertEvent(database, event, this.capacity());

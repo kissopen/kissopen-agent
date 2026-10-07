@@ -62,7 +62,7 @@ async function main(): Promise<void> {
         await runAgentDaemonCommand(command);
         return;
     }
-    throw new AgentDaemonError(`The WorPar agent does not have a command called '${command}'.`, {
+    throw new AgentDaemonError(`The KissOpen agent does not have a command called '${command}'.`, {
         hint: "Run kissopen-agent --help to see every command.",
     });
 }

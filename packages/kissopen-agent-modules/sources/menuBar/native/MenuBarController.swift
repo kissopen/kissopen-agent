@@ -37,7 +37,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         statusItem.menu = menu
         statusItem.button?.image = StatusIcon.image(phase: 0, working: false)
-        statusItem.button?.toolTip = "WorPar Agent"
+        statusItem.button?.toolTip = "KissOpen Agent"
         Timer.scheduledTimer(withTimeInterval: MenuBarController.planRefreshInterval, repeats: true) {
             [weak self] _ in
             self?.refreshPlans()

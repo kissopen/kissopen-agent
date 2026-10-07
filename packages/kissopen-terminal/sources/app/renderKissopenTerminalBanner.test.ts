@@ -54,7 +54,7 @@ describe("renderKissopenTerminalBanner", () => {
             width: 12,
         });
 
-        expect(stripAnsi(lines.join("\n"))).toBe("  KISSOPEN 1.  ");
+        expect(stripAnsi(lines.join("\n"))).toBe("  KISSOPEN  ");
         expect(lines.every((line) => visibleWidth(line) <= 12)).toBe(true);
     });
 });

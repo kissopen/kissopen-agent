@@ -45,16 +45,21 @@ export function buildProjectBoardTool(build: (ctx: Context) => Promise<BuildProj
     return defineAgentTool({
         name: BUILD_PROJECT_BOARD_TOOL,
         defer: true,
-        capabilities: ["Build or rebuild this project's WorPar board from its conversations and files."],
+        capabilities: [
+            "Build or rebuild this project's KissOpen board from its conversations and files.",
+        ],
         searchKeywords: ["project board", "build board", "看板", "生成看板", "项目看板"],
         description:
-            "Start building this project's WorPar board — the page summarising its goal, progress and next steps — from the project's conversations and files. Use it when a project's setup is done or the person asks for the board to be built or refreshed. It returns at once; the board appears on the project's board page when the build ends.",
+            "Start building this project's KissOpen board — the page summarising its goal, progress and next steps — from the project's conversations and files. Use it when a project's setup is done or the person asks for the board to be built or refreshed. It returns at once; the board appears on the project's board page when the build ends.",
         parameters: Type.Object({}, { additionalProperties: false }),
         returnType: buildProjectBoardResultSchema,
         shouldReviewInAutoMode: () => false,
         execute: async (ctx) => await build(ctx),
         toLLM: (result: BuildProjectBoardResult) => [
-            { type: "text", text: JSON.stringify({ ...result, note: buildProjectBoardNote(result) }) },
+            {
+                type: "text",
+                text: JSON.stringify({ ...result, note: buildProjectBoardNote(result) }),
+            },
         ],
     });
 }

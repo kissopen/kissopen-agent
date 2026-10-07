@@ -67,6 +67,7 @@ import {
     CloudOrganizationForbiddenError,
     CloudOrganizationInvalidEndpointError,
     CloudOrganizationInvalidRequestError,
+    CloudNotConfiguredError,
     CloudServiceUnavailableError,
     CloudWorkOS,
     type CloudAuthentication,
@@ -732,7 +733,7 @@ export class CloudModule implements AgentModule {
                 throw this.#error(
                     503,
                     "cloud_unavailable",
-                    "WorPar teams are temporarily unavailable.",
+                    "KissOpen teams are temporarily unavailable.",
                 );
             }
         });
@@ -759,14 +760,14 @@ export class CloudModule implements AgentModule {
         return await this.#lock.runInLock(ctx, async () => {
             this.#assertRunning();
             if (!Value.Check(createCloudOrganizationRequestSchema.properties.name, name)) {
-                throw this.#error(400, "invalid_request", "The WorPar team name is invalid.");
+                throw this.#error(400, "invalid_request", "The KissOpen team name is invalid.");
             }
             const normalizedEndpoint = normalizeKissopenTeamEndpoint(endpoint);
             if (
                 !Value.Check(kissopenTeamEndpointInputSchema, endpoint) ||
                 normalizedEndpoint === undefined
             ) {
-                throw this.#error(400, "invalid_request", "The WorPar team endpoint is invalid.");
+                throw this.#error(400, "invalid_request", "The KissOpen team endpoint is invalid.");
             }
             const minted = await this.#mintInLock(ctx, true);
             const client = this.#client(minted.cloud.environment);
@@ -775,7 +776,7 @@ export class CloudModule implements AgentModule {
                 created = await client.createTeam(minted.accessToken, name);
             } catch (error: unknown) {
                 if (error instanceof CloudOrganizationInvalidRequestError) {
-                    throw this.#error(400, "invalid_request", "The WorPar team name is invalid.");
+                    throw this.#error(400, "invalid_request", "The KissOpen team name is invalid.");
                 }
                 logCloudFailure(
                     ctx,
@@ -787,7 +788,7 @@ export class CloudModule implements AgentModule {
                 throw this.#error(
                     503,
                     "cloud_unavailable",
-                    "WorPar teams are temporarily unavailable.",
+                    "KissOpen teams are temporarily unavailable.",
                 );
             }
             try {
@@ -805,7 +806,7 @@ export class CloudModule implements AgentModule {
                     "kissopen-team-create-endpoint-update",
                     error,
                 );
-                const message = `WorPar team ${created.id} was created, but its endpoint could not be configured. Use update_kissopen_team with this team ID to finish setup.`;
+                const message = `KissOpen team ${created.id} was created, but its endpoint could not be configured. Use update_kissopen_team with this team ID to finish setup.`;
                 if (error instanceof CloudOrganizationForbiddenError) {
                     throw this.#error(403, "forbidden", message);
                 }
@@ -828,7 +829,7 @@ export class CloudModule implements AgentModule {
                 !Value.Check(kissopenTeamEndpointInputSchema, endpoint) ||
                 normalizedEndpoint === undefined
             ) {
-                throw this.#error(400, "invalid_request", "The WorPar team endpoint is invalid.");
+                throw this.#error(400, "invalid_request", "The KissOpen team endpoint is invalid.");
             }
             const minted = await this.#mintInLock(ctx, true);
             try {
@@ -842,14 +843,14 @@ export class CloudModule implements AgentModule {
                     throw this.#error(
                         400,
                         "invalid_request",
-                        "The WorPar team endpoint is invalid.",
+                        "The KissOpen team endpoint is invalid.",
                     );
                 }
                 if (error instanceof CloudOrganizationForbiddenError) {
                     throw this.#error(
                         403,
                         "forbidden",
-                        "The connected Cloud user is not an administrator of this WorPar team.",
+                        "The connected Cloud user is not an administrator of this KissOpen team.",
                     );
                 }
                 logCloudFailure(
@@ -862,7 +863,7 @@ export class CloudModule implements AgentModule {
                 throw this.#error(
                     503,
                     "cloud_unavailable",
-                    "WorPar teams are temporarily unavailable.",
+                    "KissOpen teams are temporarily unavailable.",
                 );
             }
         });
@@ -906,7 +907,7 @@ export class CloudModule implements AgentModule {
                     throw this.#error(
                         403,
                         "forbidden",
-                        "The connected Cloud user must administer this WorPar team to invite members.",
+                        "The connected Cloud user must administer this KissOpen team to invite members.",
                     );
                 }
                 if (error instanceof CloudInvitationConflictError) {
@@ -914,8 +915,8 @@ export class CloudModule implements AgentModule {
                         409,
                         "conflict",
                         error.reason === "already_member"
-                            ? "This email address already belongs to the WorPar team."
-                            : "This email address already has a pending invitation to the WorPar team.",
+                            ? "This email address already belongs to the KissOpen team."
+                            : "This email address already has a pending invitation to the KissOpen team.",
                     );
                 }
                 logCloudFailure(
@@ -1244,7 +1245,12 @@ export class CloudModule implements AgentModule {
     #client(environment: CloudEnvironment): CloudWorkOS {
         let client = this.#clients.get(environment);
         if (client === undefined) {
-            client = new CloudWorkOS(environment);
+            try {
+                client = new CloudWorkOS(environment);
+            } catch (error) {
+                if (!(error instanceof CloudNotConfiguredError)) throw error;
+                throw this.#error(503, "cloud_unavailable", error.message);
+            }
             this.#clients.set(environment, client);
         }
         return client;
@@ -1265,10 +1271,10 @@ export class CloudModule implements AgentModule {
     #notAuthenticated(): CloudOperationError {
         const message =
             this.#cloud.error?.code === "credentials_rejected"
-                ? "Cloud authorization has expired. Sign in to Cloud again on this WorPar Agent."
+                ? "Cloud authorization has expired. Sign in to Cloud again on this KissOpen Agent."
                 : this.#cloud.status === "authorizing"
-                  ? "Cloud sign-in is in progress. Complete sign-in on this WorPar Agent."
-                  : "Cloud is not authenticated on this WorPar Agent. Sign in to Cloud to continue.";
+                  ? "Cloud sign-in is in progress. Complete sign-in on this KissOpen Agent."
+                  : "Cloud is not authenticated on this KissOpen Agent. Sign in to Cloud to continue.";
         return this.#error(409, "cloud_not_authenticated", message);
     }
 

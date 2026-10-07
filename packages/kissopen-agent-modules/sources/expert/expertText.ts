@@ -121,7 +121,7 @@ export function formatDetachedExpertResult(result: AskExpertResult, limit?: stri
 
 /** What KISSOPEN found when it checked the answer's closing parts. */
 function formatVerification(verification: ExpertVerification): string {
-    const lines = ["# Check (made by WorPar, not by the expert)"];
+    const lines = ["# Check (made by KissOpen, not by the expert)"];
     if (verification.files.length === 0) {
         lines.push("- Files: none listed, so nothing it produced could be checked.");
     } else {

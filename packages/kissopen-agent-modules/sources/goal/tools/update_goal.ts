@@ -11,7 +11,6 @@ export function updateGoalTool(goals: GoalModule, agentId: string, maxOutputChar
         name: "update_goal",
         defer: false,
         capabilities: ["Create, inspect, update, and clear persistent long-running goals."],
-        searchKeywords: ["complete persistent goal", "block goal", "finish objective"],
         description: `Mark the persistent goal complete or blocked.
 Use complete only when the full objective is achieved and verified with no required work remaining.
 First record actual evidence for each acceptance criterion with update_goal_plan. Supply the current revision from get_goal. Successful goal bookkeeping or task completion is not proof of the deliverable.

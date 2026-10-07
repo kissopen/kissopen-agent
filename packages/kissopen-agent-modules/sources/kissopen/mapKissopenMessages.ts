@@ -744,7 +744,7 @@ export class KissopenMessageMapper {
                 role: "agent",
                 ev: {
                     t: "service",
-                    text: "This message is too large to sync to WorPar. Its complete content remains available in WorPar Agent history.",
+                    text: "This message is too large to sync to KissOpen. Its complete content remains available in KissOpen Agent history.",
                 },
             },
         };

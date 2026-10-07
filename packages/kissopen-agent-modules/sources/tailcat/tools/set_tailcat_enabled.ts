@@ -19,19 +19,19 @@ export function setTailcatEnabledTool(tailcat: TailcatModule, actingAgentId: str
         capabilities: ["Enable, disable, and inspect Tailcat internet exposure."],
         searchKeywords: ["enable Tailcat", "disable internet tunnel", "expose team server"],
         description:
-            "Enable or disable Tailcat internet exposure for this WorPar Agent installation. Enabling opens an account-free Tailcat tunnel around the active API transport and keeps its stable identity across restarts. WorPar Agent API authentication remains in force.",
+            "Enable or disable Tailcat internet exposure for this KissOpen Agent installation. Enabling opens an account-free Tailcat tunnel around the active API transport and keeps its stable identity across restarts. KissOpen Agent API authentication remains in force.",
         parameters: setTailcatEnabledInputSchema,
         returnType: tailcatStatusSchema,
         durable: true,
         requiresAutoOrFullAccess: true,
         autoPermissionInstructions:
-            "Enabling Tailcat makes this WorPar Agent API reachable from the internet through an account-free tunnel. Disabling it closes that tunnel.",
+            "Enabling Tailcat makes this KissOpen Agent API reachable from the internet through an account-free tunnel. Disabling it closes that tunnel.",
         shouldReviewInAutoMode: () => true,
         shouldRunInFullAccessInAutoMode: () => true,
         describeAutoPermissionAction: ({ enabled }: SetTailcatEnabledInput) =>
             enabled
-                ? "opening account-free Tailcat internet exposure for this WorPar Agent API"
-                : "closing this WorPar Agent installation's Tailcat internet exposure",
+                ? "opening account-free Tailcat internet exposure for this KissOpen Agent API"
+                : "closing this KissOpen Agent installation's Tailcat internet exposure",
         execute: async (ctx, { enabled }: SetTailcatEnabledInput) =>
             await tailcat.setEnabled(ctx, actingAgentId, enabled),
         toLLM: (status) => [{ type: "text", text: formatTailcatStatus(status) }],

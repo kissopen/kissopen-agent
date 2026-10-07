@@ -25,15 +25,15 @@ export function getKissopenWorkOSStateTool(module: KissopenTeamsModule, actingAg
     return defineAgentTool({
         name: "get_kissopen_workos_state",
         defer: true,
-        capabilities: ["List and manage WorPar teams."],
+        capabilities: ["List and manage KissOpen teams."],
         searchKeywords: [
             "WorkOS user ID",
             "WorkOS client ID",
             "team configuration",
-            "WorPar Cloud identity",
+            "KissOpen Cloud identity",
         ],
         description:
-            "Return the WorkOS user ID and client ID of the connected WorPar Cloud setup. Copy these exact values into feature.team.owner_workos_user_id and feature.team.workos_client_id when deploying a WorPar Agent team server. This tool is available only to an active admin bot.",
+            "Return the WorkOS user ID and client ID of the connected KissOpen Cloud setup. Copy these exact values into feature.team.owner_workos_user_id and feature.team.workos_client_id when deploying a KissOpen Agent team server. This tool is available only to an active admin bot.",
         parameters: getKissopenWorkOSStateInputSchema,
         returnType: getKissopenWorkOSStateResultSchema,
         durable: true,
@@ -41,7 +41,7 @@ export function getKissopenWorkOSStateTool(module: KissopenTeamsModule, actingAg
         requiresAutoOrFullAccess: true,
         shouldReviewInAutoMode: () => true,
         describeAutoPermissionAction: () =>
-            "reading the WorkOS user and client IDs of the connected WorPar Cloud setup. Access: external WorkOS authentication and WorPar Cloud verification",
+            "reading the WorkOS user and client IDs of the connected KissOpen Cloud setup. Access: external WorkOS authentication and KissOpen Cloud verification",
         execute: async (ctx) => {
             const state = await module.getWorkOSState(ctx, actingAgentId);
             return {
@@ -53,7 +53,7 @@ export function getKissopenWorkOSStateTool(module: KissopenTeamsModule, actingAg
             {
                 type: "text",
                 text: [
-                    "Connected WorPar Cloud WorkOS configuration:",
+                    "Connected KissOpen Cloud WorkOS configuration:",
                     `- User ID: ${workos_user_id}`,
                     `- Client ID: ${workos_client_id}`,
                 ].join("\n"),

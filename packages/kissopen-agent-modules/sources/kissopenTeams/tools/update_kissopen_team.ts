@@ -28,10 +28,10 @@ export function updateKissopenTeamTool(module: KissopenTeamsModule, actingAgentI
     return defineAgentTool({
         name: "update_kissopen_team",
         defer: true,
-        capabilities: ["List and manage WorPar teams."],
+        capabilities: ["List and manage KissOpen teams."],
         searchKeywords: ["change team", "team server URL", "organization endpoint"],
         description:
-            "Update one WorPar team. For now, endpoint is the only mutable field and must be an absolute HTTP, HTTPS, Tailcat, WS, or WSS WorPar Agent server endpoint. WorPar Cloud permits the write only when the connected WorkOS user is an active administrator of that organization. Human-owned root agents and admin bots may call this tool; non-admin bots are refused.",
+            "Update one KissOpen team. For now, endpoint is the only mutable field and must be an absolute HTTP, HTTPS, Tailcat, WS, or WSS KissOpen Agent server endpoint. KissOpen Cloud permits the write only when the connected WorkOS user is an active administrator of that organization. Human-owned root agents and admin bots may call this tool; non-admin bots are refused.",
         parameters: updateKissopenTeamInputSchema,
         returnType: updateKissopenTeamResultSchema,
         // A remote metadata write may have committed before an interruption and is not replayed.
@@ -39,7 +39,7 @@ export function updateKissopenTeamTool(module: KissopenTeamsModule, actingAgentI
         requiresAutoOrFullAccess: true,
         shouldReviewInAutoMode: () => true,
         describeAutoPermissionAction: ({ team_id, endpoint }: UpdateKissopenTeamInput) =>
-            `updating WorPar team ${quoteVisibleExact(team_id)} endpoint to ${quoteVisibleExact(endpoint)}. Access: external WorPar Cloud API and WorkOS organization metadata write`,
+            `updating KissOpen team ${quoteVisibleExact(team_id)} endpoint to ${quoteVisibleExact(endpoint)}. Access: external KissOpen Cloud API and WorkOS organization metadata write`,
         execute: async (ctx, { team_id, endpoint }: UpdateKissopenTeamInput) => ({
             endpoint: await module.update(ctx, actingAgentId, team_id, endpoint),
             team_id,
@@ -47,7 +47,7 @@ export function updateKissopenTeamTool(module: KissopenTeamsModule, actingAgentI
         toLLM: ({ team_id, endpoint }) => [
             {
                 type: "text",
-                text: `WorPar team ${team_id} now advertises ${endpoint}.`,
+                text: `KissOpen team ${team_id} now advertises ${endpoint}.`,
             },
         ],
     });

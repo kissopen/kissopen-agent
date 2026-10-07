@@ -159,7 +159,7 @@ call `get_kissopen_workos_state`. It takes no arguments and returns:
 
 ```json
 {
-    "workos_client_id": "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+    "workos_client_id": "client_01EXAMPLE",
     "workos_user_id": "user_01EXAMPLE"
 }
 ```
@@ -207,7 +207,7 @@ host = "127.0.0.1"
 port = 3000
 workos_organization_id = "org_01EXAMPLE"
 owner_workos_user_id = "user_01EXAMPLE"
-workos_client_id = "client_01KZD3XE9YAFAMT0P8TD4HP73E"
+workos_client_id = "client_01EXAMPLE"
 
 [feature.tailcat]
 enabled = true
@@ -215,8 +215,8 @@ port = 24779
 ```
 
 Set `owner_workos_user_id` and `workos_client_id` to the values returned by
-`get_kissopen_workos_state`. Do not infer the client from the environment or rely on the configuration
-default; the tool reports the exact Kissopen Cloud setup that authenticated the intended owner.
+`get_kissopen_workos_state`. Both are required and have no default; the tool reports the exact
+Kissopen Cloud setup that authenticated the intended owner.
 
 Restart the service and wait for Tailcat again:
 

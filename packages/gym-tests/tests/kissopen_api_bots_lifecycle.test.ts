@@ -152,7 +152,7 @@ describe("persistent bots through the public API", () => {
                 [
                     "# Bot identity",
                     "",
-                    'You are the persistent bot named "Research Assistant". Use this bot identity when referring to yourself. 一起卷 (WorPar) is the runtime that powers you, not your bot name.',
+                    'You are the persistent bot named "Research Assistant". Use this bot identity when referring to yourself. 一起卷 (KissOpen) is the runtime that powers you, not your bot name.',
                     "- Bot ID: `researchassistant`",
                     "- Username: `research_assistant`",
                 ].join("\n"),

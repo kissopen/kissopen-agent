@@ -5,12 +5,13 @@ import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 /**
- * The SDK packages whose sources live here but which are always consumed from npm.
+ * The SDK packages whose sources live here. Until they are published under `@kissopen` on npm,
+ * every package links the workspace copy; once published, every package pins the same version.
  *
  * pnpm gives a `workspace:*` link and a version pin two separate copies of the same package, and
  * two copies mean two copies of every class: `instanceof` fails across the seam, and an error
  * thrown by one copy is not recognized by the other. Every package therefore has to name the same
- * published version.
+ * specifier, never a mix of workspace links and published versions.
  */
 const PUBLISHED_SDK_PACKAGES = [
     "@kissopen/kissopen-providers",
@@ -45,17 +46,16 @@ function publishedVersion(dependency: string, specifier: string): string {
 
 describe("published SDK dependencies", () => {
     for (const dependency of PUBLISHED_SDK_PACKAGES) {
-        it(`resolves ${dependency} to one published version everywhere`, async () => {
+        it(`resolves ${dependency} to one copy everywhere`, async () => {
             const declared = await declaredVersions(dependency);
             assert.ok(declared.size > 0, `No package declares ${dependency}.`);
 
             const linked = [...declared]
                 .filter(([, version]) => version.startsWith("workspace:"))
                 .map(([name]) => name);
-            assert.deepEqual(
-                linked,
-                [],
-                `${dependency} must come from npm, but ${linked.join(", ")} links the workspace copy.`,
+            assert.ok(
+                linked.length === 0 || linked.length === declared.size,
+                `${dependency} mixes workspace links (${linked.join(", ")}) with published versions.`,
             );
 
             const versions = [

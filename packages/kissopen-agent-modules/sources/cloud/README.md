@@ -3,8 +3,11 @@
 `CloudModule` owns only WorkOS authentication and Kissopen Cloud organization (team) management.
 It is independent from `KissopenModule`, which connects the daemon to the Kissopen mobile app.
 
-Authentication uses the WorkOS public-client PKCE flow for Kissopen's fixed production or staging
-deployment. The exact application redirect URI is bound to the process-local authorization
+Authentication uses the WorkOS public-client PKCE flow for the selected production or staging
+deployment. KissOpen operates no hosted Cloud, so neither deployment is built in: production reads
+`KISSOPEN_CLOUD_URL` and `KISSOPEN_CLOUD_WORKOS_CLIENT_ID`, staging reads
+`KISSOPEN_CLOUD_STAGING_URL` and `KISSOPEN_CLOUD_STAGING_WORKOS_CLIENT_ID`, and a deployment
+without both reports `cloud_unavailable` with a message naming the missing variables. The exact application redirect URI is bound to the process-local authorization
 attempt. Only the pending marker and its authorization-expiry Durable Function are persisted;
 a restart expires the attempt because its PKCE verifier is gone.
 

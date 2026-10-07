@@ -311,7 +311,7 @@ export async function startKissopenAgentRuntime(
             if (failures.length > 0) {
                 throw new AggregateError(
                     failures,
-                    "The WorPar agent runtime did not close cleanly.",
+                    "The KissOpen agent runtime did not close cleanly.",
                 );
             }
         })();
@@ -368,7 +368,7 @@ export async function startKissopenAgentRuntime(
 
         const runtimeLifetime = ctx.lifetime;
         if (runtimeLifetime === undefined) {
-            throw new Error("The WorPar Agent runtime has no graceful-shutdown lifetime.");
+            throw new Error("The KissOpen Agent runtime has no graceful-shutdown lifetime.");
         }
         const runtimeRoot = withLifetime(detach(ctx), runtimeLifetime);
         const withDatabase = (target: Context): Context => withAgentDatabase(target, main.database);

@@ -50,7 +50,10 @@ async function expectGlobalLoadError(source: string, message?: string): Promise<
     const root = await temporaryRoot("kissopen-agent-config-invalid-layer-");
     await writeLayer(
         root,
-        join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+        join(
+            process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+            "kissopen.toml",
+        ),
         source,
     );
     const assertion = expect(ConfigModule.load(join(root, ".kissopen"))).rejects;
@@ -74,13 +77,13 @@ describe("ConfigModule edge coverage", () => {
 
         it("rejects empty, NUL-containing, and overlong KISSOPEN roots before reading files", async () => {
             await expect(ConfigModule.load("" as never)).rejects.toThrow(
-                "The WorPar root path must be a non-empty path.",
+                "The KissOpen root path must be a non-empty path.",
             );
             await expect(ConfigModule.load("\u0000" as never)).rejects.toThrow(
-                "The WorPar root path must be a non-empty path.",
+                "The KissOpen root path must be a non-empty path.",
             );
             await expect(ConfigModule.load("a".repeat(4_097) as never)).rejects.toThrow(
-                "The WorPar root path must be a non-empty path.",
+                "The KissOpen root path must be a non-empty path.",
             );
         });
 
@@ -218,7 +221,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 '[defaults]\ninstructions = "Be concise."\n',
             );
             const module = await ConfigModule.load(join(root, ".kissopen"));
@@ -249,7 +255,8 @@ describe("ConfigModule edge coverage", () => {
             const previousCwd = process.cwd();
             process.chdir(root);
             try {
-                const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+                const configuration = (await ConfigModule.load(join(root, ".kissopen")))
+                    .configuration;
                 expect(configuration.sources.local).toMatchObject({
                     exists: true,
                     path: join(process.cwd(), "kissopen.toml"),
@@ -267,7 +274,8 @@ describe("ConfigModule edge coverage", () => {
             const previousCwd = process.cwd();
             process.chdir(root);
             try {
-                const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+                const configuration = (await ConfigModule.load(join(root, ".kissopen")))
+                    .configuration;
                 expect(configuration.sources.local.path).toBe(join(process.cwd(), "kissopen.toml"));
                 expect(configuration.values.defaults.modelId).toBe("fallback");
             } finally {
@@ -304,7 +312,8 @@ describe("ConfigModule edge coverage", () => {
             const previousCwd = process.cwd();
             process.chdir(root);
             try {
-                const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
+                const configuration = (await ConfigModule.load(join(root, ".kissopen")))
+                    .configuration;
 
                 expect(configuration.sources.local.values).toMatchObject({
                     defaults: {
@@ -364,7 +373,10 @@ describe("ConfigModule edge coverage", () => {
             ).join("\n");
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 unknown,
             );
             const source = (await ConfigModule.load(join(root, ".kissopen"))).configuration.sources
@@ -380,7 +392,10 @@ describe("ConfigModule edge coverage", () => {
             const kissopenHome = join(root, ".kissopen");
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[permissions]",
                     'protected_paths = [".env", "secrets"]',
@@ -428,7 +443,10 @@ describe("ConfigModule edge coverage", () => {
             );
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "mcp.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "mcp.toml",
+                ),
                 [
                     "[mcp_servers.docs]",
                     'command = "docs-server"',
@@ -481,7 +499,10 @@ describe("ConfigModule edge coverage", () => {
             const previousCwd = process.cwd();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[defaults]",
                     'effort = "high"',
@@ -600,7 +621,10 @@ describe("ConfigModule edge coverage", () => {
             );
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "mcp.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "mcp.toml",
+                ),
                 [
                     "[mcp_servers.stdio]",
                     'command = "docs-server"',
@@ -619,7 +643,8 @@ describe("ConfigModule edge coverage", () => {
             );
             process.chdir(root);
             try {
-                const values = (await ConfigModule.load(join(root, ".kissopen"))).configuration.values;
+                const values = (await ConfigModule.load(join(root, ".kissopen"))).configuration
+                    .values;
                 expect(values).toMatchObject({
                     defaults: {
                         effort: "high",
@@ -753,7 +778,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[providers]",
                     "default_enable = false",
@@ -777,7 +805,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 '[defaults]\nservice_tier = "fast"\n',
             );
             await writeLayer(
@@ -794,7 +825,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[defaults]",
                     'model = "global-model"',
@@ -839,7 +873,10 @@ describe("ConfigModule edge coverage", () => {
             );
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "mcp.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "mcp.toml",
+                ),
                 '[mcp_servers.docs]\ncommand = "docs"\n',
             );
             const configuration = (await ConfigModule.load(join(root, ".kissopen"))).configuration;
@@ -868,7 +905,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 "[providers.codex]\nenabled = true\n",
             );
             await writeLayer(
@@ -887,7 +927,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 "[p2p]\nrole = 'secondary'\nprimary_id = 'primary1'\n",
             );
             await writeLayer(root, ".kissopen/agent/runtime.toml", "[p2p]\nrole = 'primary'\n");
@@ -1017,7 +1060,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 `[providers.codex]\nauth_file = "${"x".repeat(4_096)}"\n`,
             );
             const values = (await ConfigModule.load(join(root, ".kissopen"))).configuration.values;
@@ -1087,7 +1133,9 @@ describe("ConfigModule edge coverage", () => {
             const configuration = await loadKissopenAgentConfiguration(join(root, ".kissopen"));
 
             expect(Value.Check(kissopenAgentConfigurationSchema, configuration)).toBe(true);
-            expect(Value.Check(kissopenAgentConfigurationPathsSchema, configuration.paths)).toBe(true);
+            expect(Value.Check(kissopenAgentConfigurationPathsSchema, configuration.paths)).toBe(
+                true,
+            );
             expect(Value.Check(kissopenAgentConfigValuesSchema, configuration.values)).toBe(true);
             expect(Value.Check(kissopenAgentConfigSourceSchema, configuration.sources.global)).toBe(
                 true,
@@ -1107,11 +1155,14 @@ describe("ConfigModule edge coverage", () => {
             const malformedRoot = await temporaryRoot();
             await writeLayer(
                 malformedRoot,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 "[settings\n",
             );
             await expect(ConfigModule.load(join(malformedRoot, ".kissopen"))).rejects.toThrow(
-                `Could not read WorPar Agent configuration '${join(
+                `Could not read KissOpen Agent configuration '${join(
                     malformedRoot,
                     join(
                         process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
@@ -1132,7 +1183,7 @@ describe("ConfigModule edge coverage", () => {
                 },
             );
             await expect(ConfigModule.load(join(directoryRoot, ".kissopen"))).rejects.toThrow(
-                `Could not read WorPar Agent configuration '${join(
+                `Could not read KissOpen Agent configuration '${join(
                     directoryRoot,
                     join(
                         process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
@@ -1144,11 +1195,14 @@ describe("ConfigModule edge coverage", () => {
             const oversizedRoot = await temporaryRoot();
             await writeLayer(
                 oversizedRoot,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 `unknown = "${"x".repeat(1_048_576)}"`,
             );
             await expect(ConfigModule.load(join(oversizedRoot, ".kissopen"))).rejects.toThrow(
-                "Could not read WorPar Agent configuration",
+                "Could not read KissOpen Agent configuration",
             );
         });
     });
@@ -1268,7 +1322,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot("kissopen-agent-config-smart-provider-");
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[providers.work]",
                     'type = "codex"',
@@ -1329,7 +1386,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot("kissopen-agent-config-smart-bedrock-");
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[providers.east-a]",
                     'type = "bedrock"',
@@ -1361,7 +1421,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot("kissopen-agent-config-smart-bedrock-transport-");
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[providers.runtime-a]",
                     'type = "bedrock"',
@@ -1495,7 +1558,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[presence.states.milliseconds]",
                     'answer_wait = "2 milliseconds"',
@@ -1537,7 +1603,10 @@ describe("ConfigModule edge coverage", () => {
             const root = await temporaryRoot();
             await writeLayer(
                 root,
-                join(process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config", "kissopen.toml"),
+                join(
+                    process.platform === "darwin" ? "KISSOPEN/Config" : "kissopen/config",
+                    "kissopen.toml",
+                ),
                 [
                     "[presence]",
                     'fallback = "away"',

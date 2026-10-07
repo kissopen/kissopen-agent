@@ -428,7 +428,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
     start(ctx: Context, agents: AgentSystemRef<LibSQLDatabase>): AgentModuleHooks {
         const database = agentDatabase(ctx);
         if (database === undefined) {
-            throw new Error("WorPar was started without an agent database.");
+            throw new Error("KissOpen was started without an agent database.");
         }
         this.#context = withAgentDatabase(detach(ctx).named("kissopen"), database);
         if (this.#connectionOwner !== undefined && this.#team !== undefined) {
@@ -688,7 +688,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         if (!this.#config.configuration.values.settings.kissopenIntegration) {
             throw new KissopenIntegrationStartError(
                 "unsupported",
-                "The WorPar integration is disabled in this daemon.",
+                "The KissOpen integration is disabled in this daemon.",
                 this.#integration,
             );
         }
@@ -796,7 +796,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             const credentialsPath = getKissopenPaths(this.#dataDirectory).credentialsPath;
             await rm(credentialsPath, { force: true }).catch((error: unknown) => {
                 context.log.debug(
-                    "WorPar credentials could not be removed while unlinking.",
+                    "KissOpen credentials could not be removed while unlinking.",
                     {},
                     error,
                 );
@@ -817,7 +817,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         if (!this.#config.configuration.values.settings.kissopenIntegration) {
             throw new KissopenIntegrationStartError(
                 "unsupported",
-                "The WorPar integration is disabled in this daemon.",
+                "The KissOpen integration is disabled in this daemon.",
                 this.#integration,
             );
         }
@@ -828,7 +828,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
     async #beginPairing(ctx: Context, generation: number): Promise<KissopenIntegration> {
         const database = agentDatabase(ctx);
         if (database === undefined) {
-            throw new Error("WorPar pairing was started without an agent database.");
+            throw new Error("KissOpen pairing was started without an agent database.");
         }
         const target = await resolveKissopenConnectionTarget({
             adoptExternalSettings: this.#connectionOwner === undefined,
@@ -852,7 +852,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             ctx.log.debug("KISSOPEN authorization could not be started.", {}, error);
             throw new KissopenIntegrationStartError(
                 "kissopen_unavailable",
-                "WorPar is unavailable. Please try again.",
+                "KissOpen is unavailable. Please try again.",
                 this.#integration,
             );
         }
@@ -900,7 +900,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                 if (configuration === undefined) {
                     throw new KissopenPairingError(
                         "invalid_response",
-                        "The saved WorPar credentials could not be loaded.",
+                        "The saved KissOpen credentials could not be loaded.",
                     );
                 }
                 this.#pairing = undefined;
@@ -912,7 +912,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                 this.#pairing = undefined;
                 const projected = pairingError(error);
                 ctx.log.debug(
-                    "WorPar authorization did not complete.",
+                    "KissOpen authorization did not complete.",
                     { code: projected.code },
                     error,
                 );
@@ -942,7 +942,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                 configured: true,
                 error: {
                     code: "invalid_response",
-                    message: "WorPar Agent could not create its WorPar machine identity.",
+                    message: "KissOpen Agent could not create its KissOpen machine identity.",
                 },
                 status: "failed",
             });
@@ -1520,7 +1520,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         const system = this.#system();
         const config = await system.config(ctx, agentId);
         if (config === undefined) {
-            throw new Error(`No agent exists for WorPar session "${agentId}".`);
+            throw new Error(`No agent exists for KissOpen session "${agentId}".`);
         }
         const current = selectionFromConfig(config, this.#defaultSelection());
         let next: KissopenSelection;
@@ -1581,7 +1581,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                 const bot = await this.#bots.forAgent(txCtx, agentId);
                 if (bot?.status === "archived") {
                     throw new KissopenMessageRefused(
-                        "This bot is archived. Restore it in WorPar Agent before sending a message.",
+                        "This bot is archived. Restore it in KissOpen Agent before sending a message.",
                     );
                 }
                 await this.#history.queuePending(txCtx, pending);
@@ -1602,7 +1602,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             });
         } catch (cause) {
             if (cause instanceof KissopenMessageRefused) throw cause;
-            throw new Error("WorPar Agent rejected the phone's message.", { cause });
+            throw new Error("KissOpen Agent rejected the phone's message.", { cause });
         }
         this.#scheduling.interruptWaits(ctx, agentId);
         await system.updateMetadata(ctx, agentId, { kissopen: next });
@@ -1637,7 +1637,11 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         try {
             await attached.client.discardRemote();
         } catch (error) {
-            context.log.warn("WorPar kept the copy of a cleared conversation.", { agentId }, error);
+            context.log.warn(
+                "KissOpen kept the copy of a cleared conversation.",
+                { agentId },
+                error,
+            );
             await context.inTx(async (txCtx) => await this.#attach(txCtx, agentId));
             return;
         }
@@ -1753,7 +1757,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                 await this.#attachSpawnOwner(txCtx, request.sessionId, owner);
             });
         } else if (typeof existing.metadata?.archivedAt === "number") {
-            throw new Error("That WorPar Agent session is archived.");
+            throw new Error("That KissOpen Agent session is archived.");
         } else {
             await this.#attachSpawnOwner(ctx, request.sessionId, owner);
         }
@@ -1813,7 +1817,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         if (target.kind === "project") {
             const project = await this.#projects.get(ctx, target.id);
             if (project === undefined || project.status === "archived") {
-                throw new Error("That project is not available in WorPar Agent.");
+                throw new Error("That project is not available in KissOpen Agent.");
             }
             return {
                 projectId: project.id,
@@ -1824,11 +1828,11 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
         if (target.kind === "workspace") {
             const workspace = await this.#workspaces.get(ctx, target.id);
             if (workspace === undefined || workspace.status !== "ready") {
-                throw new Error("That workspace is not ready in WorPar Agent.");
+                throw new Error("That workspace is not ready in KissOpen Agent.");
             }
             const project = await this.#projects.get(ctx, workspace.projectRef);
             if (project === undefined || project.status === "archived") {
-                throw new Error("That workspace's project is not available in WorPar Agent.");
+                throw new Error("That workspace's project is not available in KissOpen Agent.");
             }
             return {
                 projectId: project.id,
@@ -1854,7 +1858,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
 
         const project = await this.#projects.get(ctx, target.projectId);
         if (project === undefined || project.status === "archived") {
-            throw new Error("That project is not available in WorPar Agent.");
+            throw new Error("That project is not available in KissOpen Agent.");
         }
         let workspace = await this.#workspaces.get(ctx, request.workspaceId);
         if (workspace === undefined) {
@@ -1866,7 +1870,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             });
         }
         if (workspace === undefined) {
-            throw new Error("WorPar Agent could not create that workspace.");
+            throw new Error("KissOpen Agent could not create that workspace.");
         }
         if (workspace.projectRef !== project.id) {
             throw new Error("That workspace belongs to another project.");
@@ -1957,7 +1961,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             await client.sync(project, options);
         } catch (error) {
             ctx.log.debug(
-                "WorPar could not synchronize a project.",
+                "KissOpen could not synchronize a project.",
                 { projectId: project.id },
                 error,
             );
@@ -1971,7 +1975,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             return await client.remoteProjectId(localProjectId);
         } catch (error) {
             ctx.log.debug(
-                "WorPar could not read a project's remote identity.",
+                "KissOpen could not read a project's remote identity.",
                 {
                     projectId: localProjectId,
                 },
@@ -1996,7 +2000,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
                     await client.sync(project, { verifyRemote: true });
                 } catch (error) {
                     ctx.log.debug(
-                        "WorPar could not synchronize a project during startup.",
+                        "KissOpen could not synchronize a project during startup.",
                         {
                             projectId: project.id,
                         },
@@ -2142,7 +2146,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             );
         } catch (error) {
             ctx.log.debug(
-                "WorPar could not replay what this session already said.",
+                "KissOpen could not replay what this session already said.",
                 { agentId },
                 error,
             );
@@ -2311,7 +2315,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             // Session ordering is enrichment. A broken history read must not take the live
             // conversation or the rest of its metadata off the phone.
             ctx.log.debug(
-                "WorPar could not read the latest conversation timestamp.",
+                "KissOpen could not read the latest conversation timestamp.",
                 { agentId },
                 error,
             );
@@ -2321,7 +2325,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
             lastQuestionAt = await this.#userInput.latestQuestionAt(ctx, agentId);
         } catch (error) {
             ctx.log.debug(
-                "WorPar could not read the latest question timestamp.",
+                "KissOpen could not read the latest question timestamp.",
                 { agentId },
                 error,
             );
@@ -2466,7 +2470,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
     #defaultSelection(): KissopenSelection {
         const model = this.#config.models[0];
         if (model === undefined) {
-            throw new Error("WorPar cannot start a session without an available model.");
+            throw new Error("KissOpen cannot start a session without an available model.");
         }
         return {
             effort: model.defaultEffort,
@@ -2478,7 +2482,7 @@ export class KissopenConnection implements KissopenSessionOperations, KissopenSp
 
     #system(): AgentSystemRef<LibSQLDatabase> {
         if (this.#agentSystem === undefined) {
-            throw new Error("WorPar was asked to act before its agents had started.");
+            throw new Error("KissOpen was asked to act before its agents had started.");
         }
         return this.#agentSystem;
     }
@@ -2555,14 +2559,14 @@ function checkedSelection(
     selection: KissopenSelection,
 ): KissopenSelection {
     if (!Value.Check(kissopenSelectionSchema, selection)) {
-        throw new Error("The WorPar model selection is invalid.");
+        throw new Error("The KissOpen model selection is invalid.");
     }
     const model = models.find(
         (candidate) =>
             candidate.id === selection.modelId && candidate.providerId === selection.providerId,
     );
     if (model === undefined) {
-        throw new Error("That model is not available in this WorPar Agent.");
+        throw new Error("That model is not available in this KissOpen Agent.");
     }
     if (!model.effortLevels.includes(selection.effort)) {
         throw new Error("That reasoning level is not available for this model.");
@@ -2585,7 +2589,7 @@ function pairingError(error: unknown): KissopenIntegrationError {
     }
     return {
         code: "invalid_response",
-        message: "WorPar authorization could not be completed.",
+        message: "KissOpen authorization could not be completed.",
     };
 }
 

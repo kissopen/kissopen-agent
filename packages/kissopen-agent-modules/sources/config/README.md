@@ -80,9 +80,9 @@ machine setting, so a project's checked-in `kissopen.toml` cannot enable it. Tea
 local API socket or bearer-token file. Instead, it exposes the WorkOS-authenticated API over TCP.
 `host` and `port` select the listener and default to `0.0.0.0` and `3000`.
 Port `0` asks the operating system to select an ephemeral port.
-`workos_client_id` defaults to the production Kissopen Cloud WorkOS client and may select another
-WorkOS project; the expected issuer and JWKS URL are derived from it. An enabled team deployment
-also requires `workos_organization_id` and `owner_workos_user_id`. Access tokens must carry that
+`workos_client_id` names the WorkOS project whose tokens are accepted; the expected issuer and JWKS
+URL are derived from it. There is no built-in client. An enabled team deployment requires it,
+`workos_organization_id` and `owner_workos_user_id`. Access tokens must carry that
 organization, and the matching owner identity receives the owner flag when their profile first
 creates a user.
 

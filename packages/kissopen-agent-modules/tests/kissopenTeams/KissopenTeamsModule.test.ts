@@ -156,7 +156,7 @@ describe("KissopenTeamsModule", () => {
         expect(tool.describeAutoPermissionAction?.(input, ctx)).toContain("person@example.com");
         expect(tool.describeAutoPermissionAction?.(input, ctx)).toContain("org_team");
         expect(tool.describeAutoPermissionAction?.(input, ctx)).toContain(
-            "external WorPar Cloud API",
+            "external KissOpen Cloud API",
         );
         await expect(tool.execute(ctx, input, call())).resolves.toEqual({
             id: "invitation_created",

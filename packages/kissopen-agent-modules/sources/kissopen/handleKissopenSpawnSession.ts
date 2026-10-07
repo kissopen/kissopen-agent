@@ -143,7 +143,7 @@ export async function handleKissopenSpawnSession(options: {
         if (cached !== undefined) return cached;
         if (!Value.Check(kissopenAgentSpawnRequestSchema, options.params)) {
             return rememberTerminal(options.operations, options.params.clientRequestId, {
-                message: "WorPar asked for a session WorPar Agent does not know how to start.",
+                message: "KissOpen asked for a session KissOpen Agent does not know how to start.",
                 type: "error",
             });
         }
@@ -153,7 +153,7 @@ export async function handleKissopenSpawnSession(options: {
     try {
         if (!Value.Check(directorySpawnRequestSchema, options.params)) {
             throw new Error(
-                "WorPar asked for a session WorPar Agent does not know how to start.",
+                "KissOpen asked for a session KissOpen Agent does not know how to start.",
             );
         }
         const request = options.params;
@@ -175,7 +175,7 @@ export async function handleKissopenSpawnSession(options: {
         }
         const permissionMode = request.permissionMode ?? "auto";
         if (!isAgentPermissionMode(permissionMode)) {
-            throw new Error("That permission mode is not one WorPar Agent has.");
+            throw new Error("That permission mode is not one KissOpen Agent has.");
         }
         const sessionId = createKissopenSpawnSessionId(options.machineId, request.clientRequestId);
         options.signal?.throwIfAborted();
@@ -210,7 +210,7 @@ export async function handleKissopenSpawnSession(options: {
             errorMessage:
                 error instanceof Error
                     ? error.message
-                    : "WorPar Agent could not start that session.",
+                    : "KissOpen Agent could not start that session.",
             type: "error",
         };
     }
@@ -242,7 +242,7 @@ async function handleKissopenAgentSpawn(
         const permissionMode =
             configuration?.permissionMode ?? options.operations.defaultSpawnPermissionMode();
         if (!isAgentPermissionMode(permissionMode)) {
-            throw new Error("That permission mode is not one WorPar Agent has.");
+            throw new Error("That permission mode is not one KissOpen Agent has.");
         }
         const sessionId = createKissopenSpawnSessionId(options.machineId, request.clientRequestId);
         const workspaceId = createKissopenSpawnSessionId(
@@ -287,7 +287,7 @@ async function handleKissopenAgentSpawn(
             message:
                 error instanceof Error
                     ? error.message
-                    : "WorPar Agent could not start that session.",
+                    : "KissOpen Agent could not start that session.",
             type: "error",
         });
     }
@@ -313,7 +313,7 @@ function chooseModel(
             (providerId === undefined || model.providerId === providerId),
     );
     if (wanted === undefined)
-        throw new Error("That model is not available in this WorPar Agent.");
+        throw new Error("That model is not available in this KissOpen Agent.");
     return wanted;
 }
 

@@ -440,7 +440,7 @@ describe("KissopenMachineClient connection state", () => {
             { status: "connecting" },
             { status: "connected" },
             {
-                message: "The connection to WorPar was lost.",
+                message: "The connection to KissOpen was lost.",
                 reason: "kissopen_unavailable",
                 status: "disconnected",
             },
@@ -470,7 +470,7 @@ describe("KissopenMachineClient connection state", () => {
         expect(events).toEqual([
             { status: "connecting" },
             {
-                message: "WorPar rejected the saved credentials.",
+                message: "KissOpen rejected the saved credentials.",
                 reason: "credentials_rejected",
                 status: "disconnected",
             },
@@ -526,13 +526,13 @@ describe("KissopenMachineClient socket revalidation", () => {
             { status: "connecting" },
             { status: "connected" },
             {
-                message: "The WorPar machine connection is unavailable.",
+                message: "The KissOpen machine connection is unavailable.",
                 reason: "kissopen_unavailable",
                 status: "disconnected",
             },
             { status: "connecting" },
             {
-                message: "WorPar rejected the saved credentials.",
+                message: "KissOpen rejected the saved credentials.",
                 reason: "credentials_rejected",
                 status: "disconnected",
             },

@@ -315,7 +315,7 @@ function unavailable(): RemoteConnectionError {
     return new RemoteConnectionError(
         503,
         "remote_unavailable",
-        "The remote WorPar Agent is unavailable.",
+        "The remote KissOpen Agent is unavailable.",
     );
 }
 

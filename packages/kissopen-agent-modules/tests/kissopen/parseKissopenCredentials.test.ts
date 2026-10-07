@@ -65,11 +65,16 @@ describe("parseKissopenCredentials", () => {
 
     it("rejects a key that is not 32 base64 bytes", () => {
         expect(() =>
-            parseKissopenCredentials({ secret: Buffer.alloc(16, 3).toString("base64"), token: "t" }),
+            parseKissopenCredentials({
+                secret: Buffer.alloc(16, 3).toString("base64"),
+                token: "t",
+            }),
         ).toThrow("32-byte base64");
     });
 
     it("rejects a file with no token", () => {
-        expect(() => parseKissopenCredentials({ secret })).toThrow("format WorPar Agent understands");
+        expect(() => parseKissopenCredentials({ secret })).toThrow(
+            "format KissOpen Agent understands",
+        );
     });
 });

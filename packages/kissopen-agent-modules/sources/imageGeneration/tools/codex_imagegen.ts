@@ -93,5 +93,5 @@ function describeImageGenerationAction(
         paths === undefined ? "" : ` and ${String(paths.length)} local image reference(s)`
     }${
         recent === undefined ? "" : ` and ${String(recent)} recent conversation image(s)`
-    } to Codex image generation. If an account definitively refuses the request, WorPar Agent may send the same data to another of ${String(module.accountCount)} configured Codex cloud account(s), including accounts with custom endpoints. Access: conversation data, local filesystem read/write, and external Codex APIs`;
+    } to Codex image generation. If an account definitively refuses the request, KissOpen Agent may send the same data to another of ${String(module.accountCount)} configured Codex cloud account(s), including accounts with custom endpoints. Access: conversation data, local filesystem read/write, and external Codex APIs`;
 }

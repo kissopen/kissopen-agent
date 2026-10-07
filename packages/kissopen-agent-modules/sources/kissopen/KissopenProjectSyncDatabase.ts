@@ -110,7 +110,7 @@ export function createKissopenProjectSyncDatabase(ownerId = "") {
             );
             const created = await read(ctx, input.localProjectId);
             if (created === undefined) {
-                throw new Error("WorPar could not record the project it just attached.");
+                throw new Error("KissOpen could not record the project it just attached.");
             }
             return created;
         },
@@ -192,7 +192,7 @@ function parse(row: KissopenProjectSyncRow): KissopenProjectSyncState {
         updatedAt: Number(row.updated_at_ms),
     };
     if (!Value.Check(kissopenProjectSyncStateSchema, state)) {
-        throw new Error("The WorPar project table contains a row WorPar Agent cannot read.");
+        throw new Error("The KissOpen project table contains a row KissOpen Agent cannot read.");
     }
     return structuredClone(state);
 }

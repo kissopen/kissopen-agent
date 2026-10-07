@@ -43,18 +43,55 @@ const MAX_CLOUD_ORGANIZATIONS_RESPONSE_BYTES = 1 * 1_024 * 1_024;
 const MAX_CLOUD_ORGANIZATIONS = 10_000;
 const exact = { additionalProperties: false } as const;
 
-const deployments: Readonly<
-    Record<CloudEnvironment, { readonly cloudUrl: string; readonly workosClientId: string }>
-> = {
+/**
+ * The environment variables naming each Cloud deployment. KissOpen operates no hosted Cloud, so
+ * nothing is built in: a deployment exists only when both of its variables are set.
+ */
+export const CLOUD_DEPLOYMENT_VARIABLES = {
     production: {
-        cloudUrl: "https://cloud.cluster-fluster.com",
-        workosClientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+        cloudUrl: "KISSOPEN_CLOUD_URL",
+        workosClientId: "KISSOPEN_CLOUD_WORKOS_CLIENT_ID",
     },
     staging: {
-        cloudUrl: "https://kissopen-cloud-staging.bulka-llc.workers.dev",
-        workosClientId: "client_01KZD3XE4EW1AF1P6WTFHBPR4J",
+        cloudUrl: "KISSOPEN_CLOUD_STAGING_URL",
+        workosClientId: "KISSOPEN_CLOUD_STAGING_WORKOS_CLIENT_ID",
     },
-};
+} as const satisfies Record<
+    CloudEnvironment,
+    { readonly cloudUrl: string; readonly workosClientId: string }
+>;
+
+const cloudDeploymentSchema = Type.Object(
+    {
+        cloudUrl: Type.String({ maxLength: 2_048, minLength: 9, pattern: "^https://[^\\s/]+$" }),
+        workosClientId: Type.String({
+            maxLength: 160,
+            minLength: 8,
+            pattern: "^client_[A-Za-z0-9]+$",
+        }),
+    },
+    exact,
+);
+
+/** The requested Cloud deployment has no configured origin and WorkOS client. */
+export class CloudNotConfiguredError extends Error {}
+
+function cloudDeployment(
+    environment: CloudEnvironment,
+    variables: NodeJS.ProcessEnv,
+): Static<typeof cloudDeploymentSchema> {
+    const names = CLOUD_DEPLOYMENT_VARIABLES[environment];
+    const deployment = {
+        cloudUrl: variables[names.cloudUrl]?.trim().replace(/\/+$/u, ""),
+        workosClientId: variables[names.workosClientId]?.trim(),
+    };
+    if (!Value.Check(cloudDeploymentSchema, deployment)) {
+        throw new CloudNotConfiguredError(
+            `KissOpen Cloud is not configured. Set ${names.cloudUrl} to an HTTPS origin and ${names.workosClientId} to its WorkOS client ID to use Cloud sign-in.`,
+        );
+    }
+    return deployment;
+}
 
 const workosAuthenticationSchema = Type.Object(
     {
@@ -163,28 +200,28 @@ export class CloudCredentialsRejectedError extends Error {
 /** Kissopen Cloud accepted the token but associated it with a different WorkOS user. */
 export class CloudIdentityMismatchError extends Error {
     constructor() {
-        super("WorPar Cloud returned a different authenticated user.");
+        super("KissOpen Cloud returned a different authenticated user.");
         this.name = "CloudIdentityMismatchError";
     }
 }
 
 export class CloudOrganizationInvalidRequestError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization request.");
+        super("KissOpen Cloud rejected the organization request.");
         this.name = "CloudOrganizationInvalidRequestError";
     }
 }
 
 export class CloudOrganizationInvalidEndpointError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization endpoint.");
+        super("KissOpen Cloud rejected the organization endpoint.");
         this.name = "CloudOrganizationInvalidEndpointError";
     }
 }
 
 export class CloudOrganizationForbiddenError extends Error {
     constructor() {
-        super("WorPar Cloud rejected the organization operation.");
+        super("KissOpen Cloud rejected the organization operation.");
         this.name = "CloudOrganizationForbiddenError";
     }
 }
@@ -226,11 +263,11 @@ export class CloudWorkOS {
     readonly #workos: Pick<PublicWorkOS, "userManagement">;
     readonly workosClientId: string;
 
-    constructor(environment: CloudEnvironment) {
+    constructor(environment: CloudEnvironment, variables: NodeJS.ProcessEnv = process.env) {
         if (!Value.Check(cloudEnvironmentSchema, environment)) {
             throw new Error("The Cloud environment is invalid.");
         }
-        const deployment = deployments[environment];
+        const deployment = cloudDeployment(environment, variables);
         this.#cloudUrl = deployment.cloudUrl;
         this.workosClientId = deployment.workosClientId;
         this.#workos = new PublicCloudWorkOSClient({

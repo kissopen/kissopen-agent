@@ -30,7 +30,7 @@ export const KISSOPEN_PERMISSION_MODES = [
     },
     {
         code: "full_access",
-        description: "Removes WorPar Agent's filesystem, shell, and network restrictions.",
+        description: "Removes KissOpen Agent's filesystem, shell, and network restrictions.",
         kind: "yolo",
         value: "Full access",
     },

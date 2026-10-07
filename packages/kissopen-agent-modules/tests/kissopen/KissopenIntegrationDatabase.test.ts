@@ -100,7 +100,7 @@ describe("KISSOPEN integration storage", () => {
             sql`UPDATE kissopen_agent_kissopen_integration_state SET state_json = ${"not json"}`,
         );
         await expect(integration.read(database.context)).rejects.toThrow(
-            "WorPar Agent could not read the stored WorPar integration state.",
+            "KissOpen Agent could not read the stored KissOpen integration state.",
         );
 
         await agentDatabaseRun(
@@ -111,7 +111,7 @@ describe("KISSOPEN integration storage", () => {
             })}`,
         );
         await expect(integration.read(database.context)).rejects.toThrow(
-            "The stored WorPar integration state is invalid.",
+            "The stored KissOpen integration state is invalid.",
         );
     });
 });

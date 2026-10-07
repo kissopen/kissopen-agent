@@ -33,7 +33,7 @@ enum MenuContent {
     }
 
     private static func headline(_ snapshot: DaemonSnapshot) -> String {
-        guard snapshot.connected else { return "Waiting for the WorPar agent…" }
+        guard snapshot.connected else { return "Waiting for the KissOpen agent…" }
         let count = snapshot.workingCount
         if count == 0 { return "Every agent is idle" }
         let projects = snapshot.projects.count

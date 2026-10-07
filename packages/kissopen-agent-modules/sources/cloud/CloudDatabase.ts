@@ -124,7 +124,7 @@ export function createCloudDatabase() {
         const row = rows[0];
         if (row === undefined) return undefined;
         if (!Value.Check(cloudStateRowSchema, row)) {
-            throw new Error("The Cloud state table contains a row WorPar Agent cannot read.");
+            throw new Error("The Cloud state table contains a row KissOpen Agent cannot read.");
         }
         return parseState(row.state_json);
     }
@@ -220,7 +220,7 @@ function parseState(value: string): CloudStoredState {
     try {
         parsed = JSON.parse(value) as unknown;
     } catch {
-        throw new Error("WorPar Agent could not read the stored Cloud authentication state.");
+        throw new Error("KissOpen Agent could not read the stored Cloud authentication state.");
     }
     if (!Value.Check(cloudStoredStateSchema, parsed)) {
         throw new Error("The stored Cloud authentication state is invalid.");

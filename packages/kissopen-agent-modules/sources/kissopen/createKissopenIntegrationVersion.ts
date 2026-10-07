@@ -34,7 +34,7 @@ export function createKissopenIntegrationVersion(
 
 function parseVersion(value: string): { readonly randomTail: bigint; readonly timestamp: bigint } {
     if (!UUID_V7_PATTERN.test(value)) {
-        throw new Error("The WorPar integration version is invalid.");
+        throw new Error("The KissOpen integration version is invalid.");
     }
     const parsed = BigInt(`0x${value.replaceAll("-", "")}`);
     return {

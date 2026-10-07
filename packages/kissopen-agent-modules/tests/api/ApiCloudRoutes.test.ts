@@ -27,6 +27,9 @@ import { DurableFunctionsModule } from "../../sources/durableFunctions/index.js"
 import { withTeamUser } from "../../sources/team/index.js";
 import { moduleDatabase } from "../support/moduleDatabase.js";
 import { resolveModuleHooks } from "../support/moduleHooks.js";
+import { stubCloudDeployments } from "../cloud/stubCloudDeployments.js";
+
+stubCloudDeployments();
 
 const workos = vi.hoisted(() => ({
     authorization: vi.fn(),

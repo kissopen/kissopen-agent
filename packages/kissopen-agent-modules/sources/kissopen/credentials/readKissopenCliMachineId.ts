@@ -4,6 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { KissopenCredentials } from "../KissopenCredentials.js";
 import { parseKissopenCredentials } from "./parseKissopenCredentials.js";
+import { DEFAULT_KISSOPEN_SERVER_URL } from "./resolveKissopenServerUrl.js";
 
 const settingsSchema = Type.Object(
     {
@@ -33,7 +34,7 @@ export async function readKissopenCliMachineId(
             const { credentials } = parseKissopenCredentials(
                 JSON.parse(await readFile(join(kissopenHome, "access.key"), "utf8")),
             );
-            const cliServer = stored.serverUrl ?? "https://api.cluster-fluster.com";
+            const cliServer = stored.serverUrl ?? DEFAULT_KISSOPEN_SERVER_URL;
             if (
                 credentials.encryption.type !== "dataKey" ||
                 account.credentials.encryption.type !== "dataKey" ||

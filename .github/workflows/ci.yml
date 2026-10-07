@@ -1,0 +1,79 @@
+name: CI
+
+# Build, type-check and unit-test every package on each push to main and each
+# pull request. The Docker gym suites stay manual; see CLAUDE.md.
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        name: Build and type-check
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm build
+            - run: pnpm check:root
+            - run: pnpm --recursive --filter './packages/**' run check
+            - name: Release script tests
+              run: pnpm run test:scripts
+
+    test:
+        name: Tests (${{ matrix.name }})
+        runs-on: ubuntu-24.04
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - name: modules
+                      filters: --filter @kissopen/kissopen-agent-modules
+                    - name: providers
+                      filters: --filter @kissopen/kissopen-providers
+                    - name: terminal
+                      filters: --filter @kissopen/kissopen-terminal
+                    - name: other packages
+                      filters: >-
+                          --filter './packages/**'
+                          --filter '!@kissopen/kissopen-agent-modules'
+                          --filter '!@kissopen/kissopen-providers'
+                          --filter '!@kissopen/kissopen-terminal'
+        env:
+            NODE_OPTIONS: --max-old-space-size=6144
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: "1.4.0"
+            - run: pnpm install --frozen-lockfile
+            - name: Enable Linux user namespaces
+              # The sandbox supervisor creates an unprivileged user namespace for Git scans and
+              # sandboxed commands; Ubuntu's AppArmor policy blocks that by default.
+              run: |
+                  if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+                      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+                  fi
+            - run: pnpm build
+            - run: pnpm --recursive --workspace-concurrency=1 ${{ matrix.filters }} run test

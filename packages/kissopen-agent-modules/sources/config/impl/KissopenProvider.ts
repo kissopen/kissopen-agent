@@ -166,14 +166,16 @@ export class KissopenProvider extends BaseProvider {
                 : {
                       apiKey,
                       baseUrl: endpoint,
-                      service: "WorPar",
+                      service: "KissOpen",
                       // The server knows the model by the Agent's own name and says how long an
                       // answer it may write; the wire carries both as they are.
                       resolveModel: (model) => {
                           const route = this.#servedRoute(model);
                           return {
                               wireModel: model,
-                              ...(route === undefined ? {} : { maxTokens: route.max_output_tokens }),
+                              ...(route === undefined
+                                  ? {}
+                                  : { maxTokens: route.max_output_tokens }),
                           };
                       },
                       responseTimeoutMs: KISSOPEN_RESPONSE_TIMEOUT_MS,
@@ -286,7 +288,9 @@ export class KissopenSession extends BaseSession {
             route: KissopenRoute,
         ) => Promise<BaseSession>,
         /** The sessions for the other APIs, where the server can be reached with a device key. */
-        private readonly others: Partial<Record<Exclude<KissopenRoute, "ordinary">, BaseSession>> = {},
+        private readonly others: Partial<
+            Record<Exclude<KissopenRoute, "ordinary">, BaseSession>
+        > = {},
         private readonly routeOf: (model: string | undefined) => KissopenRoute = (model) =>
             isDeepSeekModel(model) ? "deepseek" : "ordinary",
         private readonly effortFor: (

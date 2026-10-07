@@ -113,7 +113,7 @@ export class KissopenPairing {
         const secretKey = random(32);
         if (secretKey.byteLength !== 32) {
             secretKey.fill(0);
-            throw new Error("WorPar pairing randomness must return exactly 32 bytes.");
+            throw new Error("KissOpen pairing randomness must return exactly 32 bytes.");
         }
         const keyPair = nobleBoxKeyPairFromSecretKey(secretKey);
         secretKey.fill(0);
@@ -127,7 +127,7 @@ export class KissopenPairing {
             if (error instanceof KissopenPairingError) throw error;
             throw new KissopenPairingError(
                 "kissopen_unavailable",
-                "WorPar is unavailable. Please try again.",
+                "KissOpen is unavailable. Please try again.",
             );
         }
     }
@@ -136,7 +136,7 @@ export class KissopenPairing {
     close(): void {
         if (this.#settled) return;
         this.#controller.abort();
-        this.#finishError(new KissopenPairingError("cancelled", "WorPar pairing was cancelled."));
+        this.#finishError(new KissopenPairingError("cancelled", "KissOpen pairing was cancelled."));
     }
 
     async #run(initial: KissopenAuthResponse): Promise<void> {
@@ -162,13 +162,13 @@ export class KissopenPairing {
                 this.#finishError(error);
             } else if (this.#controller.signal.aborted) {
                 this.#finishError(
-                    new KissopenPairingError("cancelled", "WorPar pairing was cancelled."),
+                    new KissopenPairingError("cancelled", "KissOpen pairing was cancelled."),
                 );
             } else {
                 this.#finishError(
                     new KissopenPairingError(
                         "kissopen_unavailable",
-                        "WorPar is unavailable. Please try again.",
+                        "KissOpen is unavailable. Please try again.",
                     ),
                 );
             }
@@ -200,7 +200,7 @@ export class KissopenPairing {
         if (!response.ok) {
             throw new KissopenPairingError(
                 "kissopen_unavailable",
-                "WorPar is unavailable. Please try again.",
+                "KissOpen is unavailable. Please try again.",
             );
         }
         let body: unknown;
@@ -211,14 +211,14 @@ export class KissopenPairing {
             if (interruption !== undefined) throw interruption;
             throw new KissopenPairingError(
                 "invalid_response",
-                "WorPar returned an authorization response WorPar Agent could not read.",
+                "KissOpen returned an authorization response KissOpen Agent could not read.",
             );
         }
         this.#throwIfExpired();
         if (!Value.Check(kissopenAuthResponseSchema, body)) {
             throw new KissopenPairingError(
                 "invalid_response",
-                "WorPar returned an authorization response WorPar Agent could not read.",
+                "KissOpen returned an authorization response KissOpen Agent could not read.",
             );
         }
         return body;
@@ -231,7 +231,7 @@ export class KissopenPairing {
     #expired(): KissopenPairingError {
         return new KissopenPairingError(
             "authorization_expired",
-            "WorPar authorization expired. Start again to show a new QR code.",
+            "KissOpen authorization expired. Start again to show a new QR code.",
         );
     }
 
@@ -243,7 +243,7 @@ export class KissopenPairing {
             this.#requestInterruption(timeoutSignal, deadlineBoundsRequest) ??
             new KissopenPairingError(
                 "kissopen_unavailable",
-                "WorPar is unavailable. Please try again.",
+                "KissOpen is unavailable. Please try again.",
             )
         );
     }
@@ -253,14 +253,14 @@ export class KissopenPairing {
         deadlineBoundsRequest: boolean,
     ): KissopenPairingError | undefined {
         if (this.#controller.signal.aborted) {
-            return new KissopenPairingError("cancelled", "WorPar pairing was cancelled.");
+            return new KissopenPairingError("cancelled", "KissOpen pairing was cancelled.");
         }
         if (timeoutSignal.aborted) {
             return deadlineBoundsRequest
                 ? this.#expired()
                 : new KissopenPairingError(
                       "kissopen_unavailable",
-                      "WorPar is unavailable. Please try again.",
+                      "KissOpen is unavailable. Please try again.",
                   );
         }
         return undefined;
@@ -274,7 +274,7 @@ export class KissopenPairing {
         if (decrypted === undefined) {
             throw new KissopenPairingError(
                 "invalid_response",
-                "WorPar returned authorization data WorPar Agent could not decrypt.",
+                "KissOpen returned authorization data KissOpen Agent could not decrypt.",
             );
         }
         try {
@@ -285,7 +285,7 @@ export class KissopenPairing {
                 const machineKey = this.#randomBytes(32);
                 if (machineKey.byteLength !== 32) {
                     machineKey.fill(0);
-                    throw new Error("WorPar pairing randomness must return exactly 32 bytes.");
+                    throw new Error("KissOpen pairing randomness must return exactly 32 bytes.");
                 }
                 try {
                     return {
@@ -301,7 +301,7 @@ export class KissopenPairing {
             }
             throw new KissopenPairingError(
                 "invalid_response",
-                "WorPar returned authorization data in an unsupported format.",
+                "KissOpen returned authorization data in an unsupported format.",
             );
         } finally {
             decrypted.fill(0);
@@ -328,7 +328,7 @@ function decodeBase64(value: string): Uint8Array {
     if (decoded.byteLength === 0 || decoded.toString("base64") !== value) {
         throw new KissopenPairingError(
             "invalid_response",
-            "WorPar returned authorization data WorPar Agent could not decode.",
+            "KissOpen returned authorization data KissOpen Agent could not decode.",
         );
     }
     return new Uint8Array(decoded);
@@ -365,7 +365,7 @@ async function readBoundedJson(response: Response): Promise<unknown> {
             bytes += next.value.byteLength;
             if (bytes > KISSOPEN_PAIRING_RESPONSE_MAX_BYTES) {
                 await reader.cancel().catch(() => undefined);
-                throw new Error("The WorPar authorization response is too large.");
+                throw new Error("The KissOpen authorization response is too large.");
             }
             chunks.push(Buffer.from(next.value));
         }

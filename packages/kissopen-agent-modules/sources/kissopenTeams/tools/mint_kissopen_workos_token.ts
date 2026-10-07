@@ -25,7 +25,7 @@ export function mintKissopenWorkOSTokenTool(module: KissopenTeamsModule, actingA
     return defineAgentTool({
         name: "mint_kissopen_workos_token",
         defer: true,
-        capabilities: ["List and manage WorPar teams."],
+        capabilities: ["List and manage KissOpen teams."],
         searchKeywords: [
             "WorkOS authentication",
             "short-lived token",
@@ -33,14 +33,14 @@ export function mintKissopenWorkOSTokenTool(module: KissopenTeamsModule, actingA
             "bearer token",
         ],
         description:
-            "Mint a WorkOS bearer token for direct requests to a WorPar Agent team node. Only an active admin bot may call this tool. Requires team_id (the WorkOS organization ID). The token acts as the connected WorPar Cloud user in that organization, not as a separate bot identity, and expires within five minutes. WorkOS must have Access token duration set to five minutes or less; longer-lived tokens are withheld. Use Authorization: Bearer <access_token> only with the intended trusted node. This is a sensitive credential: do not echo it to the user, write it to files, or send it to unrelated endpoints. No refresh token is returned. Token expiry prevents new authenticated requests; it does not undo work already started.",
+            "Mint a WorkOS bearer token for direct requests to a KissOpen Agent team node. Only an active admin bot may call this tool. Requires team_id (the WorkOS organization ID). The token acts as the connected KissOpen Cloud user in that organization, not as a separate bot identity, and expires within five minutes. WorkOS must have Access token duration set to five minutes or less; longer-lived tokens are withheld. Use Authorization: Bearer <access_token> only with the intended trusted node. This is a sensitive credential: do not echo it to the user, write it to files, or send it to unrelated endpoints. No refresh token is returned. Token expiry prevents new authenticated requests; it does not undo work already started.",
         parameters: mintKissopenWorkOSTokenInputSchema,
         returnType: mintKissopenWorkOSTokenResultSchema,
         durable: false,
         requiresAutoOrFullAccess: true,
         shouldReviewInAutoMode: () => true,
         describeAutoPermissionAction: ({ team_id }) =>
-            `minting and exposing a bearer credential for team ${team_id}, valid for at most five minutes, to this admin bot. It carries the connected user's organization permissions. Access: external WorkOS authentication and WorPar Cloud verification; the credential will appear in the tool result`,
+            `minting and exposing a bearer credential for team ${team_id}, valid for at most five minutes, to this admin bot. It carries the connected user's organization permissions. Access: external WorkOS authentication and KissOpen Cloud verification; the credential will appear in the tool result`,
         execute: async (ctx, { team_id }) => {
             const token = await module.mintWorkOSToken(ctx, actingAgentId, team_id);
             return { access_token: token.accessToken, expires_at: token.expiresAt, team_id };

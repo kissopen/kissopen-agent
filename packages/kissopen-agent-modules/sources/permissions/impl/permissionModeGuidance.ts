@@ -72,7 +72,7 @@ function rules(mode: AgentPermissionMode): string {
             );
         case "full_access":
             return (
-                "No filesystem, shell, or network restriction of WorPar Agent's own applies, so nothing " +
+                "No filesystem, shell, or network restriction of KissOpen Agent's own applies, so nothing " +
                 "will stop a destructive or outward-facing action on your behalf. Take the care " +
                 "the absence of a boundary calls for: confirm anything hard to reverse before " +
                 "doing it."

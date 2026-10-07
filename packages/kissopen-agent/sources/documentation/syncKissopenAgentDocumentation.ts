@@ -12,7 +12,7 @@ export async function syncKissopenAgentDocumentation(
     kissopenHome: string,
     files: readonly KissopenAgentDocumentationFile[],
 ): Promise<void> {
-    if (files.length === 0) throw new Error("The packaged WorPar Agent documentation is empty.");
+    if (files.length === 0) throw new Error("The packaged KissOpen Agent documentation is empty.");
     const docsHome = join(kissopenHome, "docs");
     await mkdir(kissopenHome, { recursive: true });
     await ensureSafeDirectory(docsHome);
@@ -22,7 +22,7 @@ export async function syncKissopenAgentDocumentation(
         const target = join(docsHome, relativePath);
         if (escapes(docsHome, target)) {
             throw new Error(
-                `WorPar Agent documentation path escapes its directory: ${relativePath}`,
+                `KissOpen Agent documentation path escapes its directory: ${relativePath}`,
             );
         }
         await ensureSafeDirectory(dirname(target), docsHome);
@@ -38,14 +38,14 @@ function validateRelativePath(path: string): string {
         normalized === ".." ||
         normalized.startsWith(`..${sep}`)
     ) {
-        throw new Error(`Invalid WorPar Agent documentation path: ${path}`);
+        throw new Error(`Invalid KissOpen Agent documentation path: ${path}`);
     }
     return normalized;
 }
 
 async function ensureSafeDirectory(path: string, root: string = path): Promise<void> {
     if (escapes(root, path)) {
-        throw new Error(`WorPar Agent documentation directory escapes its root: ${path}`);
+        throw new Error(`KissOpen Agent documentation directory escapes its root: ${path}`);
     }
     await createAndVerifyDirectory(root);
     const nested = relative(root, path);
@@ -65,7 +65,7 @@ async function createAndVerifyDirectory(path: string): Promise<void> {
     }
     const status = await lstat(path);
     if (!status.isDirectory() || status.isSymbolicLink()) {
-        throw new Error(`WorPar Agent documentation directory is unsafe: ${path}`);
+        throw new Error(`KissOpen Agent documentation directory is unsafe: ${path}`);
     }
     await chmod(path, 0o755);
 }
@@ -118,13 +118,13 @@ async function openExistingDocument(path: string) {
     });
     if (!status) return undefined;
     if (!status.isFile() || status.isSymbolicLink()) {
-        throw new Error(`WorPar Agent documentation file is unsafe: ${path}`);
+        throw new Error(`KissOpen Agent documentation file is unsafe: ${path}`);
     }
     const handle = await open(path, "r");
     try {
         const opened = await handle.stat();
         if (opened.dev !== status.dev || opened.ino !== status.ino || !opened.isFile()) {
-            throw new Error(`WorPar Agent documentation file changed while opening: ${path}`);
+            throw new Error(`KissOpen Agent documentation file changed while opening: ${path}`);
         }
         return handle;
     } catch (error) {

@@ -46,7 +46,7 @@ describe("Windows sandbox command", () => {
             { encoding: "utf8", windowsHide: true, maxBuffer: 64 * 1024, env: process.env },
             expect.any(Function),
         );
-        expect(console.log).toHaveBeenCalledWith("WorPar's Windows sandbox is configured.");
+        expect(console.log).toHaveBeenCalledWith("KissOpen's Windows sandbox is configured.");
     });
 
     it("forwards retry only when explicitly requested and preserves a spaced state path", async () => {
@@ -73,7 +73,7 @@ describe("Windows sandbox command", () => {
         );
         await runSandboxCommand(["status"]);
         expect(execFile.mock.calls[0]?.[1]).toEqual(["--setup-status"]);
-        expect(console.log).toHaveBeenCalledWith("WorPar's Windows sandbox is not configured.");
+        expect(console.log).toHaveBeenCalledWith("KissOpen's Windows sandbox is not configured.");
     });
 
     it.each([["setup"], ["setup", "--retry"]])(

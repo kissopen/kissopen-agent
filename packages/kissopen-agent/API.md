@@ -67,14 +67,12 @@ start and persisted at `paths.tokenPath` with mode `0600`. A machine deployment 
 the socket token and is written to the same private token file so local clients use the same
 credential. Project configuration cannot set it. Team mode rejects a configured standalone token.
 
-In team mode, the token is a WorkOS access token issued for the production Kissopen Cloud client
-`client_01KZD3XE9YAFAMT0P8TD4HP73E`. The daemon verifies the RS256 signature and the required
-WorkOS claims locally against the WorkOS JWKS, with issuer
-`https://api.workos.com/user_management/client_01KZD3XE9YAFAMT0P8TD4HP73E`. Its `org_id` claim must
-equal `[feature.team] workos_organization_id`. The organization and
-`owner_workos_user_id` are required team settings. A deployment may override the WorkOS client
-with `[feature.team] workos_client_id`; the expected issuer and JWKS URL are derived from that
-client ID. Team mode does not create or read `paths.tokenPath`.
+In team mode, the token is a WorkOS access token issued for the WorkOS client named by
+`[feature.team] workos_client_id`. There is no built-in client. The daemon verifies the RS256
+signature and the required WorkOS claims locally against that client's WorkOS JWKS, with issuer
+`https://api.workos.com/user_management/<workos_client_id>`. Its `org_id` claim must equal
+`[feature.team] workos_organization_id`. The client, the organization and `owner_workos_user_id`
+are required team settings. Team mode does not create or read `paths.tokenPath`.
 
 An organization member without a local user may access health, onboarding status, and the profile
 routes needed to onboard. Other routes remain unauthorized until saving the profile creates that

@@ -64,7 +64,7 @@ async function createLockFile(path: string, record: LockRecord): Promise<FileHan
             const owner = await readLockRecord(path);
             if (owner !== undefined && processExists(owner.pid)) {
                 throw new Error(
-                    `The WorPar agent store is already owned by process ${String(owner.pid)}.`,
+                    `The KissOpen agent store is already owned by process ${String(owner.pid)}.`,
                 );
             }
             await unlink(path).catch((unlinkError: unknown) => {
@@ -72,7 +72,7 @@ async function createLockFile(path: string, record: LockRecord): Promise<FileHan
             });
         }
     }
-    throw new Error("The WorPar agent store lock could not be acquired.");
+    throw new Error("The KissOpen agent store lock could not be acquired.");
 }
 
 async function readLockRecord(path: string): Promise<LockRecord | undefined> {

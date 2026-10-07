@@ -164,6 +164,11 @@ export class TeamModule<Database extends AgentDatabase = AgentDatabase> implemen
             this.#tokens = undefined;
             return;
         }
+        if (team.workosClientId === undefined) {
+            throw new Error(
+                "Team mode requires feature.team.workos_client_id in the global configuration.",
+            );
+        }
         if (team.workosOrganizationId === undefined) {
             throw new Error(
                 "Team mode requires feature.team.workos_organization_id in the global configuration.",

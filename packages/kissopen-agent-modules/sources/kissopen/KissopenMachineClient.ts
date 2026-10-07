@@ -70,8 +70,8 @@ class KissopenMachineRegistrationError extends Error {
     constructor(credentialsRejected: boolean) {
         super(
             credentialsRejected
-                ? "WorPar rejected the saved credentials."
-                : "The WorPar machine connection is unavailable.",
+                ? "KissOpen rejected the saved credentials."
+                : "The KissOpen machine connection is unavailable.",
         );
         this.name = "KissopenMachineRegistrationError";
         this.credentialsRejected = credentialsRejected;
@@ -142,7 +142,7 @@ export class KissopenMachineClient {
     constructor(options: KissopenMachineClientOptions) {
         const machineId = options.configuration.machineId;
         if (machineId === undefined) {
-            throw new Error("WorPar Agent has no WorPar machine identity to register.");
+            throw new Error("KissOpen Agent has no KissOpen machine identity to register.");
         }
         this.#machineId = machineId;
         this.#options = options;
@@ -170,20 +170,20 @@ export class KissopenMachineClient {
                     error instanceof KissopenMachineRegistrationError && error.credentialsRejected;
                 this.#announce({
                     message: credentialsRejected
-                        ? "WorPar rejected the saved credentials."
-                        : "The WorPar machine connection is unavailable.",
+                        ? "KissOpen rejected the saved credentials."
+                        : "The KissOpen machine connection is unavailable.",
                     reason: credentialsRejected ? "credentials_rejected" : "kissopen_unavailable",
                     status: "disconnected",
                 });
                 if (credentialsRejected) {
                     this.#options.context.log.debug(
-                        "WorPar machine registration rejected the saved credentials.",
+                        "KissOpen machine registration rejected the saved credentials.",
                         {},
                         error,
                     );
                 } else {
                     this.#options.context.log.debug(
-                        "WorPar machine registration will retry.",
+                        "KissOpen machine registration will retry.",
                         {},
                         error,
                     );
@@ -215,7 +215,7 @@ export class KissopenMachineClient {
                     () =>
                         reject(
                             new Error(
-                                "WorPar could not confirm the CLI machine link. Try again.",
+                                "KissOpen could not confirm the CLI machine link. Try again.",
                             ),
                         ),
                     HTTP_TIMEOUT_MS,
@@ -236,7 +236,7 @@ export class KissopenMachineClient {
             (await readKissopenCliMachineId(cliHome)) !== undefined
         ) {
             throw new Error(
-                "WorPar CLI must use the same V2 account and server as WorPar Agent. Existing sign-ins were kept.",
+                "KissOpen CLI must use the same V2 account and server as KissOpen Agent. Existing sign-ins were kept.",
             );
         }
     }
@@ -288,7 +288,7 @@ export class KissopenMachineClient {
         }
         const body: unknown = await response.json();
         if (!Value.Check(machineSchema, body)) {
-            throw new Error("WorPar returned a machine WorPar Agent could not read.");
+            throw new Error("KissOpen returned a machine KissOpen Agent could not read.");
         }
         if (this.#closed) return;
         const remote = this.#decode(body.machine.metadata);
@@ -342,7 +342,7 @@ export class KissopenMachineClient {
             // Socket.IO reconnects a dropped connection itself, and the machine
             // registration it was built on is still good, so this only reports.
             this.#announce({
-                message: "The connection to WorPar was lost.",
+                message: "The connection to KissOpen was lost.",
                 reason: "kissopen_unavailable",
                 status: "disconnected",
             });
@@ -350,7 +350,7 @@ export class KissopenMachineClient {
         socket.on("connect_error", () => {
             if (!this.#isCurrent(generation)) return;
             this.#announce({
-                message: "The WorPar machine connection is unavailable.",
+                message: "The KissOpen machine connection is unavailable.",
                 reason: "kissopen_unavailable",
                 status: "disconnected",
             });
@@ -418,7 +418,7 @@ export class KissopenMachineClient {
             request.method !== `${this.#machineId}:spawn-kissopen-session`
         ) {
             answer = {
-                errorMessage: "WorPar sent a request WorPar Agent does not serve.",
+                errorMessage: "KissOpen sent a request KissOpen Agent does not serve.",
                 type: "error",
             };
         } else {
@@ -474,7 +474,7 @@ export class KissopenMachineClient {
         settled?: (error?: Error) => void,
     ): void {
         if (!this.#isCurrent(generation) || attempt >= 3) {
-            settled?.(new Error("WorPar could not update the CLI machine link. Try again."));
+            settled?.(new Error("KissOpen could not update the CLI machine link. Try again."));
             return;
         }
         const { siblingMachineId: _previousSibling, ...base } = this.#metadataBase;
@@ -508,7 +508,7 @@ export class KissopenMachineClient {
                     this.#syncMetadata(socket, generation, answer.version, attempt + 1, settled);
                 } else {
                     settled?.(
-                        new Error("WorPar did not accept the CLI machine link. Try again."),
+                        new Error("KissOpen did not accept the CLI machine link. Try again."),
                     );
                 }
             },

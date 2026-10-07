@@ -80,7 +80,7 @@ export function createScheduledTaskTool(
         name: CREATE_SCHEDULED_TASK_TOOL,
         defer: true,
         capabilities: [
-            "Set up reminders and tasks that run later or repeat, in WorPar Scheduled tasks.",
+            "Set up reminders and tasks that run later or repeat, in KissOpen Scheduled tasks.",
         ],
         searchKeywords: [
             "schedule task",
@@ -95,7 +95,7 @@ export function createScheduledTaskTool(
             "每天",
         ],
         description:
-            "Create a WorPar scheduled task for the person. Use it whenever they want something to happen at a later time or on a repeating basis — a reminder, a daily summary, a weekly check — instead of waiting or promising to do it later. It is created at once, runs where this conversation runs, and each run comes back into this conversation. If the result asks a question (status `needs`), ask the person with request_user_input, offering its choices, then call again with a request that includes their answer. When it is created, tell them in one or two sentences what will happen and when it next runs; they can change or stop it in Scheduled tasks.",
+            "Create a KissOpen scheduled task for the person. Use it whenever they want something to happen at a later time or on a repeating basis — a reminder, a daily summary, a weekly check — instead of waiting or promising to do it later. It is created at once, runs where this conversation runs, and each run comes back into this conversation. If the result asks a question (status `needs`), ask the person with request_user_input, offering its choices, then call again with a request that includes their answer. When it is created, tell them in one or two sentences what will happen and when it next runs; they can change or stop it in Scheduled tasks.",
         parameters: scheduledTaskRequestSchema,
         returnType: scheduledTaskResultSchema,
         shouldReviewInAutoMode: () => false,

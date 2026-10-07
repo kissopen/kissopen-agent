@@ -9,9 +9,11 @@ import type { StoredKissopenCredentials } from "../KissopenCredentials.js";
  * shape explicitly keeps the digest independent of source key order and fields
  * Kissopen Agent does not understand.
  */
-export function createKissopenCredentialFingerprint(credentials: StoredKissopenCredentials): string {
+export function createKissopenCredentialFingerprint(
+    credentials: StoredKissopenCredentials,
+): string {
     if ((credentials.secret === undefined) === (credentials.encryption === undefined)) {
-        throw new Error("A WorPar credential fingerprint needs exactly one encryption format.");
+        throw new Error("A KissOpen credential fingerprint needs exactly one encryption format.");
     }
     const canonical =
         credentials.secret !== undefined

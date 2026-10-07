@@ -13,7 +13,6 @@ export function getGoalTool(goals: GoalModule, agentId: string, maxOutputCharact
         name: "get_goal",
         defer: false,
         capabilities: ["Create, inspect, update, and clear persistent long-running goals."],
-        searchKeywords: ["inspect current goal", "goal status", "read objective"],
         description:
             "Get this agent's persistent objective, status, stable goalId, current revision, rolling summary, acceptance evidence and lifetime usage. Use the current revision for plan changes and completion; read_agent_history supplies actual evidence positions.",
         parameters: Type.Object({}, { additionalProperties: false }),

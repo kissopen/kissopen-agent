@@ -22,6 +22,9 @@ import {
 import { DurableFunctionsModule } from "../../sources/durableFunctions/index.js";
 import { moduleDatabase, type ModuleDatabase } from "../support/moduleDatabase.js";
 import { resolveModuleHooks } from "../support/moduleHooks.js";
+import { stubCloudDeployments } from "./stubCloudDeployments.js";
+
+stubCloudDeployments();
 
 const workos = vi.hoisted(() => ({
     authorization: vi.fn(),
@@ -157,10 +160,10 @@ function teamToken(organizationId: string, lifetime = 300) {
     const issuedAt = Math.floor(Date.now() / 1_000);
     return `${Buffer.from('{"alg":"RS256"}').toString("base64url")}.${Buffer.from(
         JSON.stringify({
-            client_id: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+            client_id: "client_01TESTPRODUCTION",
             exp: issuedAt + lifetime,
             iat: issuedAt,
-            iss: "https://api.workos.com/user_management/client_01KZD3XE9YAFAMT0P8TD4HP73E",
+            iss: "https://api.workos.com/user_management/client_01TESTPRODUCTION",
             org_id: organizationId,
             sid: "session_test",
             sub: user.id,
@@ -461,12 +464,12 @@ describe("CloudModule", () => {
     it.each([
         [
             "disconnected",
-            "Cloud is not authenticated on this WorPar Agent. Sign in to Cloud to continue.",
+            "Cloud is not authenticated on this KissOpen Agent. Sign in to Cloud to continue.",
         ],
-        ["authorizing", "Cloud sign-in is in progress. Complete sign-in on this WorPar Agent."],
+        ["authorizing", "Cloud sign-in is in progress. Complete sign-in on this KissOpen Agent."],
         [
             "credentials_rejected",
-            "Cloud authorization has expired. Sign in to Cloud again on this WorPar Agent.",
+            "Cloud authorization has expired. Sign in to Cloud again on this KissOpen Agent.",
         ],
     ] as const)(
         "explains %s login recovery without requesting another team token",
@@ -792,7 +795,7 @@ describe("CloudModule", () => {
         const rejected = expect(queued).rejects.toMatchObject({
             code: "cloud_not_authenticated",
             message:
-                "Cloud is not authenticated on this WorPar Agent. Sign in to Cloud to continue.",
+                "Cloud is not authenticated on this KissOpen Agent. Sign in to Cloud to continue.",
         });
         refresh.resolve({ accessToken: "public-token", refreshToken: "rotated", user });
         await blocking;
@@ -986,6 +989,24 @@ describe("CloudModule", () => {
         ).resolves.toMatchObject({ status: "authorizing" });
     });
 
+    it("reports an unconfigured Cloud deployment as unavailable without contacting WorkOS", async () => {
+        vi.stubEnv("KISSOPEN_CLOUD_URL", "");
+        vi.stubEnv("KISSOPEN_CLOUD_WORKOS_CLIENT_ID", "");
+        const { database, module } = await fixture("cloud-not-configured");
+        await expect(
+            module.start(database.context, {
+                environment: "production",
+                redirectUri: "kissopen-auth://callback",
+            }),
+        ).rejects.toMatchObject({
+            code: "cloud_unavailable",
+            message: expect.stringContaining("KISSOPEN_CLOUD_URL"),
+            status: 503,
+        });
+        expect(workos.refresh).not.toHaveBeenCalled();
+        expect(module.status(database.context).status).toBe("disconnected");
+    });
+
     it("cancels authorization expiry locally and rejects a callback after sign-out", async () => {
         const { database, module } = await fixture("cloud-signout-pending");
         await module.start(database.context, {
@@ -1015,7 +1036,7 @@ describe("CloudModule", () => {
         expect(connected.user).toEqual(user);
         expect(Object.isFrozen(connected.user)).toBe(true);
         expect(workos.create).toHaveBeenCalledWith({
-            clientId: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+            clientId: "client_01TESTPRODUCTION",
             fetchFn: expect.any(Function),
             maxRetries: 0,
             timeout: 15_000,
@@ -1143,10 +1164,10 @@ describe("CloudModule", () => {
         const makeToken = (lifetime: number) =>
             `${Buffer.from('{"alg":"RS256"}').toString("base64url")}.${Buffer.from(
                 JSON.stringify({
-                    client_id: "client_01KZD3XE9YAFAMT0P8TD4HP73E",
+                    client_id: "client_01TESTPRODUCTION",
                     exp: issuedAt + lifetime,
                     iat: issuedAt,
-                    iss: "https://api.workos.com/user_management/client_01KZD3XE9YAFAMT0P8TD4HP73E",
+                    iss: "https://api.workos.com/user_management/client_01TESTPRODUCTION",
                     org_id: "org_target",
                     sid: "session_test",
                     sub: user.id,
@@ -1211,8 +1232,8 @@ describe("CloudModule", () => {
     });
 
     it.each([
-        ["production", "client_01KZD3XE9YAFAMT0P8TD4HP73E"],
-        ["staging", "client_01KZD3XE4EW1AF1P6WTFHBPR4J"],
+        ["production", "client_01TESTPRODUCTION"],
+        ["staging", "client_01TESTSTAGING"],
     ] as const)(
         "returns the reverified WorkOS state for the connected %s Cloud account",
         async (environment, workosClientId) => {
@@ -1294,7 +1315,7 @@ describe("CloudModule", () => {
         ).rejects.toMatchObject({
             code: "cloud_unavailable",
             message: expect.stringContaining(
-                "WorPar team org_partial was created, but its endpoint could not be configured. Use update_kissopen_team",
+                "KissOpen team org_partial was created, but its endpoint could not be configured. Use update_kissopen_team",
             ),
             status: 503,
         } satisfies Partial<CloudOperationError>);

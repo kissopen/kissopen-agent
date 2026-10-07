@@ -34,6 +34,7 @@ describe("parallel personal mobile synchronization", () => {
                     "enabled = true",
                     'host = "127.0.0.1"',
                     "port = 0",
+                    'workos_client_id = "client_01TESTPRODUCTION"',
                     'workos_organization_id = "org_mobile"',
                     'owner_workos_user_id = "user_alice"',
                 ].join("\n"),
@@ -58,7 +59,7 @@ describe("parallel personal mobile synchronization", () => {
                     ? Promise.resolve(Response.json({ keys: [jwk] }))
                     : nativeFetch(input, init),
             );
-            const clientId = "client_01KZD3XE9YAFAMT0P8TD4HP73E";
+            const clientId = "client_01TESTPRODUCTION";
             const token = (subject: string) =>
                 new SignJWT({ client_id: clientId, org_id: "org_mobile", sid: "mobile-sync" })
                     .setProtectedHeader({ alg: "RS256", kid: "mobile-sync" })
@@ -143,7 +144,9 @@ describe("parallel personal mobile synchronization", () => {
                     expect((await alice.getKissopenIntegration()).integration.status).toBe(
                         "connected",
                     );
-                    expect((await bob.getKissopenIntegration()).integration.status).toBe("connected");
+                    expect((await bob.getKissopenIntegration()).integration.status).toBe(
+                        "connected",
+                    );
                     expect(relay.activeMachines()).toEqual(["alice-mobile", "bob-mobile"]);
                     expect(
                         [...relay.sessions.values()].filter((session) => session.botId === bot.id),
@@ -179,7 +182,9 @@ describe("parallel personal mobile synchronization", () => {
                     expect((await alice.getKissopenIntegration()).integration.status).toBe(
                         "connected",
                     );
-                    expect((await bob.getKissopenIntegration()).integration.status).toBe("connected");
+                    expect((await bob.getKissopenIntegration()).integration.status).toBe(
+                        "connected",
+                    );
                     expect(relay.activeMachines()).toEqual(["alice-mobile", "bob-mobile"]);
                 },
                 { timeout: 10_000 },
@@ -199,7 +204,9 @@ describe("parallel personal mobile synchronization", () => {
                         configured: false,
                         error: { code: "credentials_rejected" },
                     });
-                    expect((await bob.getKissopenIntegration()).integration.status).toBe("connected");
+                    expect((await bob.getKissopenIntegration()).integration.status).toBe(
+                        "connected",
+                    );
                     expect(relay.activeMachines()).toEqual(["bob-mobile"]);
                 },
                 { timeout: 10_000 },

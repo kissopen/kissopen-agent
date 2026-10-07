@@ -34,7 +34,7 @@ export function createMcpConfigurationTools(
             name: "configure_mcp_server",
             defer: true,
             capabilities: [
-                "Configure WorPar Agent MCP servers and reload them without restarting the daemon.",
+                "Configure KissOpen Agent MCP servers and reload them without restarting the daemon.",
             ],
             searchKeywords: ["add MCP server", "edit mcp.toml", "remove MCP server"],
             description:
@@ -43,7 +43,7 @@ export function createMcpConfigurationTools(
             returnType: mcpServerPageSchema,
             requiresAutoOrFullAccess: true,
             autoPermissionInstructions:
-                "This updates the global WorPar MCP configuration and reconnects external servers.",
+                "This updates the global KissOpen MCP configuration and reconnects external servers.",
             describeAutoPermissionAction: ({ action, name }) =>
                 `${action === "remove" ? "removing" : "updating"} MCP server “${name}” in ~/KISSOPEN/Config/mcp.toml and reloading external MCP connections`,
             shouldReviewInAutoMode: () => true,
@@ -69,7 +69,7 @@ export function createMcpConfigurationTools(
             name: "reload_mcp_servers",
             defer: true,
             capabilities: [
-                "Configure WorPar Agent MCP servers and reload them without restarting the daemon.",
+                "Configure KissOpen Agent MCP servers and reload them without restarting the daemon.",
             ],
             searchKeywords: ["reload MCP", "reconnect MCP", "refresh mcp.toml"],
             description:

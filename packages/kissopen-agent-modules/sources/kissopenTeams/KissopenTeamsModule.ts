@@ -88,7 +88,7 @@ export class KissopenTeamsModule implements AgentModule {
     ): Promise<{ readonly workosClientId: string; readonly workosUserId: string }> {
         if (!(await this.#isActiveAdminBot(ctx, actingAgentId))) {
             throw new Error(
-                "Only an active admin bot can inspect the connected WorPar Cloud WorkOS state.",
+                "Only an active admin bot can inspect the connected KissOpen Cloud WorkOS state.",
             );
         }
         return await this.#cloud.getWorkOSState(ctx);
@@ -118,7 +118,7 @@ export class KissopenTeamsModule implements AgentModule {
             (await this.#requireAgents().parentOf(ctx, actingAgentId)) !== null ||
             !(await this.#isActiveAdminBot(ctx, actingAgentId))
         ) {
-            throw new Error("Only an active admin bot can invite people to WorPar teams.");
+            throw new Error("Only an active admin bot can invite people to KissOpen teams.");
         }
         return await this.#cloud.inviteTeamMember(ctx, teamId, email);
     }
@@ -137,7 +137,7 @@ export class KissopenTeamsModule implements AgentModule {
 
     #requireAgents(): AgentSystemRef {
         if (this.#agents === undefined)
-            throw new Error("WorPar teams started without Agent System.");
+            throw new Error("KissOpen teams started without Agent System.");
         return this.#agents;
     }
 }
@@ -145,10 +145,10 @@ export class KissopenTeamsModule implements AgentModule {
 function formatAdminBotRequired(bots: readonly BotRecord[]): string {
     const admins = bots.filter((bot) => bot.isAdmin);
     if (admins.length === 0) {
-        return "Only an admin bot can manage WorPar teams. There are no admin bots on this installation.";
+        return "Only an admin bot can manage KissOpen teams. There are no admin bots on this installation.";
     }
     return [
-        "Only an admin bot can manage WorPar teams. Admin bots on this installation:",
+        "Only an admin bot can manage KissOpen teams. Admin bots on this installation:",
         ...admins.map(
             (bot) =>
                 `- ${bot.name}${bot.status === "archived" ? " (archived)" : ""} — id ${bot.id}`,
