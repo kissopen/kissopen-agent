@@ -15,6 +15,7 @@ export function generatePasswordTool() {
     return defineAgentTool({
         name: "generate_password",
         defer: false,
+        capabilities: ["Generate new random passwords for sign-up and password-change forms."],
         description:
             "Generate a cryptographically random NEW password for the user's authorized task. Default length is 24, with uppercase, lowercase, digits and symbols. Generate once, use that same value for the new-password and confirmation fields with the browser tool, and continue the task. Return the generated password to the user after verifying the result when requested. Never use this to retrieve existing credentials, invent a completed registration, or bypass a required final-step confirmation.",
         parameters: Type.Object(

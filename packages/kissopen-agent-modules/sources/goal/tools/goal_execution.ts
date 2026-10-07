@@ -13,6 +13,7 @@ export function goalExecutionTools(
         defineAgentTool({
             name: "update_goal_plan",
             defer: false,
+            capabilities: ["Create, inspect, update, and clear persistent long-running goals."],
             description:
                 "Maintain the active goal's rolling plan and acceptance criteria. Use the current revision from get_goal. Supply objective or replacement criteria only when the human changes the requirements; this invalidates prior evidence. For tool-result evidence, supply BOTH historyPosition (zero-based; subtract one from the numbered read_agent_history heading) and the exact Call ID shown for the successful result. Omit callId only for an actual assistant text deliverable. Summaries and task completion alone are not proof. Create recent actionable tasks with metadata.goalId from get_goal; update the plan as observations change.",
             parameters: goalPlanSchema,
@@ -34,6 +35,7 @@ export function goalExecutionTools(
         defineAgentTool({
             name: "control_goal",
             defer: false,
+            capabilities: ["Create, inspect, update, and clear persistent long-running goals."],
             description:
                 "Pause or resume the current goal ONLY according to the current human's instruction. Interpret meaning, not fixed keywords: a direction to act autonomously or authorization that resolves the previous blocker is a resume request. Call resume before continuing a paused or blocked goal. A progress question, unrelated conversation, negated resume request or automated wake is not permission to resume or replenish limits. Resume keeps the goal, tasks, evidence and lifetime usage. Clear_goal abandons a goal only at the human's request.",
             parameters: Type.Object(
@@ -65,6 +67,7 @@ export function goalExecutionTools(
         defineAgentTool({
             name: "wait_for_goal",
             defer: false,
+            capabilities: ["Create, inspect, update, and clear persistent long-running goals."],
             description:
                 "Park automatic goal continuation until a bounded recheck time without repeatedly asking the model. Background tool/workflow results or a new human instruction may wake it sooner. This schedules observation, never a replay of the last operation, a browser reconnection, or work that has not actually started. A normally ended waiting turn is not a completed objective. If a submission outcome is unknown, inspect actual state after waking before taking another action.",
             parameters: Type.Object(
