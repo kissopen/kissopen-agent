@@ -107,7 +107,7 @@ jobs:
             - name: Stage the published sandbox SDK for its native regression checks
               run: |
                   @'
-                  const { cpSync, mkdirSync } = require('node:fs');
+                  const { copyFileSync, cpSync, mkdirSync } = require('node:fs');
                   const { createRequire } = require('node:module');
                   const { dirname, join, resolve } = require('node:path');
                   const agent = createRequire(resolve('packages/kissopen-agent/package.json'));
@@ -117,6 +117,9 @@ jobs:
                   const destination = 'packages/kissopen-agent-supervisor/native/target/release';
                   mkdirSync(destination, { recursive: true });
                   cpSync(source, destination, { recursive: true });
+                  // The pinned SDK retains its upstream filenames; native checks use the
+                  // repository's supervisor name with the same binary and bundled helpers.
+                  copyFileSync(join(source, 'happy-agent-supervisor.exe'), join(destination, 'kissopen-agent-supervisor.exe'));
                   '@ | node
                   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             - name: Select the built libsql binding for native regression checks
