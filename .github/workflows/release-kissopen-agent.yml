@@ -106,7 +106,9 @@ jobs:
             - name: Build Kissopen Agent JavaScript
               run: |
                   pnpm --filter @kissopen/kissopen-agent-supervisor build
+                  pnpm --filter @kissopen/kissopen-agent-client build
                   pnpm --filter @kissopen/kissopen-providers build
+                  pnpm --filter @kissopen/kissopen-agent-base build
                   pnpm --filter @kissopen/kissopen-agent-compute build
                   pnpm --filter @kissopen/kissopen-agent-modules build
                   pnpm --filter @kissopen/kissopen-agent build
@@ -140,10 +142,6 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - runner: macos-15
-                      target: darwin-arm64
-                    - runner: macos-15-intel
-                      target: darwin-x64
                     - runner: ubuntu-24.04-arm
                       target: linux-arm64
                     - runner: ubuntu-24.04
@@ -175,7 +173,9 @@ jobs:
             - name: Build Kissopen Agent JavaScript
               run: |
                   pnpm --filter @kissopen/kissopen-agent-supervisor build
+                  pnpm --filter @kissopen/kissopen-agent-client build
                   pnpm --filter @kissopen/kissopen-providers build
+                  pnpm --filter @kissopen/kissopen-agent-base build
                   pnpm --filter @kissopen/kissopen-agent-compute build
                   pnpm --filter @kissopen/kissopen-agent-modules build
                   pnpm --filter @kissopen/kissopen-agent build
@@ -281,7 +281,7 @@ jobs:
               shell: bash
               run: |
                   binary="packages/kissopen-agent/dist/bin/kissopen-agent-$TARGET"
-                  test "$("$binary" --version)" = "Kissopen Agent $RELEASE_VERSION"
+                  test "$("$binary" --version)" = "KISSOPEN Agent $RELEASE_VERSION"
                   "$binary" --help >/dev/null
                   node packages/kissopen-agent/scripts/smoke-binary-transports.mjs "$binary"
 
