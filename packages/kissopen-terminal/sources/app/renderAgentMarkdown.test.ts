@@ -48,7 +48,7 @@ describe("renderAgentMarkdown", () => {
 
             expect(raw).toContain("file:///workspace/sources/app/CodingAssistantApp.ts#L12");
             expect(raw).toContain("https://example.com/docs");
-            expect(raw).toContain("\x1b[36m\x1b[4m\x1b[36mthe app");
+            expect(raw).toContain("\x1b[38;2;145;132;217m\x1b[4m\x1b[38;2;145;132;217mthe app");
             expect(rendered).toContain("the app");
         } finally {
             resetCapabilitiesCache();
