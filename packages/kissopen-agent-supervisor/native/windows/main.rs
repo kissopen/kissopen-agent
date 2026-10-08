@@ -117,7 +117,7 @@ async fn run() -> Result<i32> {
     for path in p.denied_read_paths {
         if !path.exists() {
             if path_in_write_roots(&path,&write_roots) {
-                bail!("cannot protect absent readable path inside a writable root: {}",path.display());
+                bail!("cannot safely protect the missing sensitive path '{}' while its parent is writable. Run this command with a project subdirectory as its working directory, or use Read only mode for inspection. Do not use your entire user profile as a writable workspace",path.display());
             }
             continue;
         }
@@ -186,5 +186,5 @@ fn main() {
         }
         Err(error) => Err(anyhow::Error::new(error).context("create runtime")),
     };
-    match outcome {Ok(code)=>std::process::exit(code),Err(err)=>{eprintln!("Kissopen Windows sandbox: {err:#}");std::process::exit(125)}}
+    match outcome {Ok(code)=>std::process::exit(code),Err(err)=>{eprintln!("KISSOPEN Windows sandbox: {err:#}");std::process::exit(125)}}
 }

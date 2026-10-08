@@ -31,6 +31,10 @@ jobs:
                       script: packages/kissopen-agent/scripts/build-native-libsql.mjs
                       source: packages/kissopen-agent/native/libsql/**
                       output: packages/kissopen-agent/native/target/win32-x64
+                    - component: sandbox
+                      script: packages/kissopen-agent-supervisor/scripts/build-native-windows.mjs
+                      source: packages/kissopen-agent-supervisor/native/windows/**
+                      output: packages/kissopen-agent-supervisor/native/target/release
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -104,24 +108,8 @@ jobs:
               run: pnpm install --frozen-lockfile
             - name: Build workspace JavaScript
               run: pnpm build
-            - name: Stage the published sandbox SDK for its native regression checks
-              run: |
-                  @'
-                  const { copyFileSync, cpSync, mkdirSync } = require('node:fs');
-                  const { createRequire } = require('node:module');
-                  const { dirname, join, resolve } = require('node:path');
-                  const agent = createRequire(resolve('packages/kissopen-agent/package.json'));
-                  const compute = createRequire(agent.resolve('@kissopen/kissopen-agent-compute'));
-                  const platform = dirname(compute.resolve('@kissopen/kissopen-agent-supervisor-win32-x64/package.json'));
-                  const source = join(platform, 'vendor/x86_64-pc-windows-gnu/bin');
-                  const destination = 'packages/kissopen-agent-supervisor/native/target/release';
-                  mkdirSync(destination, { recursive: true });
-                  cpSync(source, destination, { recursive: true });
-                  // The pinned SDK retains its upstream filenames; native checks use the
-                  // repository's supervisor name with the same binary and bundled helpers.
-                  copyFileSync(join(source, 'happy-agent-supervisor.exe'), join(destination, 'kissopen-agent-supervisor.exe'));
-                  '@ | node
-                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            - name: Verify KISSOPEN sandbox branding and fail-closed diagnostics
+              run: node packages/kissopen-agent-supervisor/scripts/verify-native-windows-preflight.mjs
             - name: Select the built libsql binding for native regression checks
               run: |
                   @'

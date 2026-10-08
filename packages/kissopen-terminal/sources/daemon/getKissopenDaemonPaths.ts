@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { isAbsolute, join, win32 } from "node:path";
+import { join, win32 } from "node:path";
+import { getKissopenHome } from "./getKissopenHome.js";
 
 /** Filesystem locations shared by Kissopen Terminal and the Kissopen Agent daemon. */
 export interface KissopenDaemonPaths {
@@ -22,7 +23,7 @@ export function getKissopenDaemonPaths(
     environment: NodeJS.ProcessEnv = process.env,
     homeDirectory: string = homedir(),
 ): KissopenDaemonPaths {
-    const kissopenHome = resolveKissopenHome(environment, homeDirectory);
+    const kissopenHome = getKissopenHome(environment, homeDirectory);
     const agentDirectory = join(kissopenHome, "agent");
     const distDirectory = join(kissopenHome, "dist");
     return {
@@ -47,17 +48,6 @@ export function kissopenAgentBinaryPath(paths: KissopenDaemonPaths, version: str
         version,
         process.platform === "win32" ? "kissopen-agent.exe" : "kissopen-agent",
     );
-}
-
-function resolveKissopenHome(environment: NodeJS.ProcessEnv, homeDirectory: string): string {
-    const configured = environment.KISSOPEN_HOME_DIR?.trim();
-    if (configured === undefined || configured.length === 0) {
-        return join(homeDirectory, ".kissopen");
-    }
-    const expanded = configured.startsWith("~")
-        ? join(homeDirectory, configured.slice(1))
-        : configured;
-    return isAbsolute(expanded) ? expanded : join(homeDirectory, expanded);
 }
 
 /** Matches the daemon endpoint without coupling the terminal client to its runtime. */

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertWindowsSystemImports } from "../../kissopen-agent/scripts/assertWindowsSystemImports.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const metadata = JSON.parse(readFileSync(join(packageRoot, "native/windows/source.json"), "utf8"));
@@ -103,6 +104,7 @@ for (const name of [
     "kissopen-sandbox-setup.exe",
 ]) {
     if (!existsSync(join(output, name))) throw new Error(`Missing build output: ${name}`);
+    assertWindowsSystemImports(join(output, name));
     copyFileSync(join(output, name), join(destination, name));
 }
 console.log(`Built native Kissopen sandbox and both helpers in ${destination}`);

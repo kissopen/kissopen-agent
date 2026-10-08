@@ -164,6 +164,13 @@ outbound-versus-listener restrictions are outside this Windows scope; unsupporte
 policies must fail explicitly. WSL support and Claude-specific onboarding validation
 are deferred. This does not change the macOS/Linux implementations.
 
+Use a project subdirectory as the working directory for Auto or Workspace write.
+If a missing sensitive file such as `~/.bash_history` falls inside a writable root,
+the supervisor refuses execution: Windows cannot apply a read-denial ACL to an
+absent file without creating it. The file stays absent. Select the actual project
+directory, or use Read only for inspection; do not make the entire user profile a
+writable workspace to run a project command.
+
 ### Native verification
 
 The native verification commands require Bun 1.4 or newer on PATH alongside Node.

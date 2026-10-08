@@ -4,16 +4,24 @@ Kissopen Terminal is a client of the standalone Kissopen Agent daemon. This modu
 boundary: it probes the daemon's Unix socket, starts the selected managed binary, installs a released
 executable when nothing is selected yet, and invokes daemon lifecycle commands.
 
+`getKissopenHome` uses the packaged open-source Desktop's Agent home by default:
+Electron's per-user app-data directory followed by `kissopen-oss/runtime/.kissopen`.
+It follows Windows `APPDATA`, macOS `Library/Application Support`, and Linux
+`XDG_CONFIG_HOME` (or `~/.config`). Explicit `KISSOPEN_HOME_DIR` values still select
+isolated installations. The launcher passes the resolved home to every child Agent;
+otherwise the child would start in its standalone default while the CLI waits elsewhere.
+Development Desktop checkouts keep their own isolated homes and require an explicit override.
+
 ```text
 Kissopen Terminal starts
    |
-   +-- live ~/.kissopen/agent/server.sock --------------------> connect
+   +-- live <shared-home>/agent/server.sock -----------------> connect
    |
-   +-- ~/.kissopen/dist/config.json selected binary ----------> start binary
+   +-- <shared-home>/dist/config.json selected binary --------> start binary
    |
    `-- no selected binary --> latest GitHub release
                                 |
-                                `-- ~/.kissopen/dist/version/<version>/kissopen-agent
+                                `-- <shared-home>/dist/version/<version>/kissopen-agent
 ```
 
 Downloads are streamed to a unique staging directory and verified against GitHub's SHA-256
@@ -22,17 +30,17 @@ rename. `install.lock` serializes first-run downloads across Kissopen Terminal p
 atomic config replacement remain safe even if a process exits midway.
 
 Released installations check GitHub for a newer Agent without blocking terminal startup and cache a
-successful lookup in `~/.kissopen/dist/latest.json` for 20 hours. Daemons that do not match the
+successful lookup in `<shared-home>/dist/latest.json` for 20 hours. Daemons that do not match the
 selected managed binary are never offered a release update. A locally linked `0.0.0` Agent is
 offered the published release so `kissopen-terminal upgrade` can leave the local install. That command
 downloads and selects the newest verified release, then crosses the existing `reload` boundary to
 drain, stop, and restart the daemon.
 
-The standalone daemon atomically records its process ID at `~/.kissopen/agent/daemon.pid`. Graceful
+The standalone daemon atomically records its process ID at `<shared-home>/agent/daemon.pid`. Graceful
 `stop` waits for both the Unix socket and that exact process to exit. `kissopen-terminal daemon kill` reads the
 same owner-only file, sends `SIGKILL`, waits for exit, and removes the stale record. `status` reports
 a persisted process that is still alive but no longer answers its socket. Named shutdown-step logs
-are written to `~/.kissopen/agent/observation/agent.log`; daemon commands print that path as the
+are written to `<shared-home>/agent/observation/agent.log`; daemon commands print that path as the
 shutdown log.
 
 `reload` is also the replacement boundary used when switching downloaded Agent releases. It gives

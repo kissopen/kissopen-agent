@@ -26,6 +26,12 @@ on Ubuntu 24.04 with `aa-exec` installed, separately from the native success-pat
 
 Native Windows checks require the existing Kissopen provisioning directory in
 `KISSOPEN_WINDOWS_SANDBOX_HOME`; they do not install accounts or firewall rules.
+`verify-native-windows-preflight.mjs` is the exception: it needs no provisioning.
+It checks that the native error prefix is KISSOPEN and that missing sensitive paths
+inside writable roots fail before the workload starts, remain absent, and explain
+using a project subdirectory or Read only mode. The Windows Agent build embeds
+the locally built KISSOPEN supervisor and its matching KISSOPEN helpers; it must
+never substitute the upstream Happy binary by renaming it.
 `verify-native-windows-output.mjs` sends 65,536 unbuffered four-byte writes
 through the real supervisor with a deliberately slow consumer. It verifies exact
 stdout/stderr bytes and hashes, including the tail before process completion.

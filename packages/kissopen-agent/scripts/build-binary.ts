@@ -401,31 +401,39 @@ export const { getQuickJS } = QJS;
         const relativePath = `${relativeDirectory}/kissopen-agent-supervisor${supervisorTarget.platform === "win32" ? ".exe" : ""}`;
         const variables = [variable];
         if (supervisorTarget.platform === "win32") {
-            const manifest = resolveRequired(
-                computeRequire,
-                "@kissopen/kissopen-agent-supervisor-win32-x64/package.json",
-            );
-            const nativeRoot = join(dirname(manifest), relativeDirectory);
-            // The vendored tarball is upstream's published Windows build, so the files
-            // inside it keep their upstream names. Only the embedded path is ours.
+            // Ship the fork's native boundary and matching helpers together. Renaming
+            // an upstream executable does not change its branding or OS identities.
+            const supervisorRoot = join(kissopenAgentRoot, "../kissopen-agent-supervisor");
+            const nativeRoot = join(supervisorRoot, "native/target/release");
+            for (const name of [
+                "kissopen-agent-supervisor.exe",
+                "kissopen-sandbox-runner.exe",
+                "kissopen-sandbox-setup.exe",
+            ]) {
+                if (!existsSync(join(nativeRoot, name))) {
+                    throw new Error(
+                        `Missing native KISSOPEN sandbox artifact '${name}'. Run pnpm --filter @kissopen/kissopen-agent-supervisor build:native:windows before packaging Windows.`,
+                    );
+                }
+            }
             assets.push(
-                asset(variable, join(nativeRoot, "happy-agent-supervisor.exe"), relativePath, true),
+                asset(
+                    variable,
+                    join(nativeRoot, "kissopen-agent-supervisor.exe"),
+                    relativePath,
+                    true,
+                ),
             );
-            // The helpers keep their upstream names on disk as well: the vendored
-            // supervisor looks them up beside itself by those exact names
-            // (happy-sandbox-setup.exe, happy-sandbox-runner.exe) and cannot be
-            // told otherwise. Renaming them left Windows sandboxed commands
-            // unable to start.
-            for (const [sourceName, name, suffix] of [
-                ["happy-sandbox-runner.exe", "happy-sandbox-runner.exe", "Runner"],
-                ["happy-sandbox-setup.exe", "happy-sandbox-setup.exe", "Setup"],
+            for (const [name, suffix] of [
+                ["kissopen-sandbox-runner.exe", "Runner"],
+                ["kissopen-sandbox-setup.exe", "Setup"],
             ] as const) {
                 const helperVariable = variable + suffix;
                 variables.push(helperVariable);
                 assets.push(
                     asset(
                         helperVariable,
-                        join(nativeRoot, sourceName),
+                        join(nativeRoot, name),
                         `${relativeDirectory}/${name}`,
                         true,
                     ),
@@ -435,7 +443,11 @@ export const { getQuickJS } = QJS;
                 const licenseVariable = variable + name.replaceAll(".", "");
                 variables.push(licenseVariable);
                 assets.push(
-                    asset(licenseVariable, join(nativeRoot, name), `${relativeDirectory}/${name}`),
+                    asset(
+                        licenseVariable,
+                        join(supervisorRoot, "native/windows", name),
+                        `${relativeDirectory}/${name}`,
+                    ),
                 );
             }
         } else {

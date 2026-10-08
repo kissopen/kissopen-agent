@@ -15,6 +15,22 @@ kissopen
 
 The separate Kissopen CLI also integrates Kissopen Terminal and exposes it through `kissopen`.
 
+The CLI and packaged open-source Desktop use the same per-user Agent by default. Providers,
+credentials, sessions, and installed Agent versions belong to that Agent, so a custom provider
+saved in Desktop is immediately available in the CLI's `/model` menu. Desktop does not have to
+be running: the CLI starts the shared Agent when necessary.
+
+The shared Agent home matches Desktop's existing installation:
+
+- Windows: `%APPDATA%/kissopen-oss/runtime/.kissopen`
+- macOS: `~/Library/Application Support/kissopen-oss/runtime/.kissopen`
+- Linux: `${XDG_CONFIG_HOME:-~/.config}/kissopen-oss/runtime/.kissopen`
+
+`KISSOPEN_HOME_DIR` remains an explicit override for development or a separate installation.
+Earlier standalone CLI data under `~/.kissopen` is retained without being merged or deleted;
+set `KISSOPEN_HOME_DIR=~/.kissopen` to open that installation. Existing Desktop data requires
+no migration. CLI presentation preferences remain separate from the shared Agent data.
+
 Released installations check for a newer Kissopen Agent in the background. When one is available,
 the terminal shows the host command to run, such as `kissopen upgrade` or
 `kissopen upgrade`. The standalone command downloads and verifies the newest Agent release,

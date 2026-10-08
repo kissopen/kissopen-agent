@@ -13,7 +13,10 @@ import {
 
 import { KissopenTerminalUserError } from "../KissopenTerminalUserError.js";
 import { createUnixSocketFetch } from "./createUnixSocketFetch.js";
-import { ensureKissopenAgentBinary, type KissopenAgentBinary } from "./ensureKissopenAgentBinary.js";
+import {
+    ensureKissopenAgentBinary,
+    type KissopenAgentBinary,
+} from "./ensureKissopenAgentBinary.js";
 import { selectedKissopenAgentBinary } from "./kissopenAgentBinaryConfig.js";
 import { getKissopenDaemonPaths, type KissopenDaemonPaths } from "./getKissopenDaemonPaths.js";
 
@@ -70,15 +73,18 @@ export async function ensureLocalProtocolServer(
                     ? `Starting KISSOPEN Agent ${command.version}.`
                     : "Starting local KISSOPEN Agent sources.",
             );
-            await runKissopenAgent(command.arguments, "start");
+            await runKissopenAgent(command.arguments, "start", paths);
         }
     } catch (error) {
         const raced = await observeLocalProtocolServer(paths);
         if (raced !== undefined) return await connectWhenReady(raced);
-        throw new KissopenTerminalUserError("The local KISSOPEN Agent daemon could not be started.", {
-            cause: error,
-            hint: error instanceof Error ? error.message : String(error),
-        });
+        throw new KissopenTerminalUserError(
+            "The local KISSOPEN Agent daemon could not be started.",
+            {
+                cause: error,
+                hint: error instanceof Error ? error.message : String(error),
+            },
+        );
     }
 
     const started = await waitForDaemon(paths);
@@ -175,6 +181,11 @@ async function resolveKissopenAgentCommand(
 }
 
 async function startLocalDaemonInProcess(paths: KissopenDaemonPaths): Promise<void> {
+    if (!process.env.KISSOPEN_HOME_DIR?.trim()) {
+        throw new Error(
+            "The in-process Gym daemon requires an explicit isolated KISSOPEN_HOME_DIR.",
+        );
+    }
     const localSources = resolveLocalKissopenAgentSources();
     if (localSources === undefined) {
         throw new Error("The in-process Gym daemon requires a KISSOPEN Agent source checkout.");
@@ -195,7 +206,11 @@ async function startLocalDaemonInProcess(paths: KissopenDaemonPaths): Promise<vo
     await connectWhenReady(observed);
 }
 
-function runKissopenAgent(command: DaemonCommand, action: "start"): Promise<void> {
+function runKissopenAgent(
+    command: DaemonCommand,
+    action: "start",
+    paths: KissopenDaemonPaths,
+): Promise<void> {
     const [executable, ...arguments_] = command;
     if (executable === undefined) throw new Error("The KISSOPEN Agent command is empty.");
     return new Promise((resolve, reject) => {
@@ -203,7 +218,7 @@ function runKissopenAgent(command: DaemonCommand, action: "start"): Promise<void
             executable,
             [...arguments_, action],
             {
-                env: process.env,
+                env: { ...process.env, KISSOPEN_HOME_DIR: paths.kissopenHome },
                 maxBuffer: 1024 * 1024,
                 timeout: DAEMON_COMMAND_TIMEOUT_MS,
             },
