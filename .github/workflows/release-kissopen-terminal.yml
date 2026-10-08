@@ -125,6 +125,61 @@ jobs:
                   shasum -a 256 "$tarball" > "$tarball.sha256"
                   cp packages/kissopen-terminal/package.json release-assets/package.json
 
+            - name: Recover an equivalent package already accepted by npm
+              shell: bash
+              run: |
+                  python3 <<'PY'
+                  import base64
+                  import hashlib
+                  import io
+                  import json
+                  import os
+                  import tarfile
+                  import urllib.error
+                  import urllib.request
+                  from pathlib import Path
+
+                  version = os.environ["RELEASE_VERSION"]
+                  url = f"https://registry.npmjs.org/@kissopen/kissopen-terminal/{version}"
+                  try:
+                      with urllib.request.urlopen(url, timeout=30) as response:
+                          metadata = json.load(response)
+                  except urllib.error.HTTPError as error:
+                      if error.code == 404:
+                          print("This version has not been published; using the new package.")
+                          raise SystemExit(0)
+                      raise
+                  expected_url = f"https://registry.npmjs.org/@kissopen/kissopen-terminal/-/kissopen-terminal-{version}.tgz"
+                  if metadata["dist"]["tarball"] != expected_url:
+                      raise RuntimeError("Unexpected npm tarball URL")
+                  with urllib.request.urlopen(expected_url, timeout=60) as response:
+                      published = response.read()
+                  integrity = "sha512-" + base64.b64encode(hashlib.sha512(published).digest()).decode()
+                  if integrity != metadata["dist"]["integrity"]:
+                      raise RuntimeError("The downloaded npm package failed its integrity check")
+
+                  def contents(data):
+                      result = {}
+                      with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+                          for member in archive:
+                              if not member.isfile() or member.name in result:
+                                  raise RuntimeError("Unexpected or duplicate npm archive entry")
+                              content = archive.extractfile(member).read()
+                              # pnpm may reorder resolved workspace dependencies between packs.
+                              # All manifest values and every other file must remain identical.
+                              if member.name == "package/package.json":
+                                  content = json.loads(content)
+                              result[member.name] = (member.mode, content)
+                      return result
+
+                  tarball, = Path("release-assets").glob("*.tgz")
+                  if contents(tarball.read_bytes()) != contents(published):
+                      raise RuntimeError("Published package contents differ from the build; choose a new version")
+                  tarball.write_bytes(published)
+                  Path(str(tarball) + ".sha256").write_text(hashlib.sha256(published).hexdigest() + "  " + str(tarball) + "\n")
+                  print("Recovered the original npm bytes; the packed-package smoke test will verify them next.")
+                  PY
+
             - name: Smoke test the packed package
               shell: bash
               run: |
