@@ -1,0 +1,17 @@
+diff --git a/src/sprintf.js b/src/sprintf.js
+index 65d6324645ef1d0133614a71497751009dc5c912..2cfca51ac94ab27017c0c88df04fa76f7e92129e 100644
+--- a/src/sprintf.js
++++ b/src/sprintf.js
+@@ -184,6 +184,12 @@
+                     throw new Error('[sprintf] mixing positional and named placeholders is not (yet) supported')
+                 }
+ 
++                // CVE-2026-97058: bound precision before calling the numeric formatters.
++                // Keep a string so explicit zero retains its existing formatting behavior.
++                if (match[7] !== undefined && /^[efg]$/.test(match[8])) {
++                    match[7] = String(Math.min(100, Math.max(match[8] === 'g' ? 1 : 0, Number(match[7]))))
++                }
++
+                 parse_tree.push(
+                     {
+                         placeholder: match[0],
