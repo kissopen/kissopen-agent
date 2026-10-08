@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createGym, type Gym } from "@kissopen/kissopen-terminal-gym";
 
 const running = new Set<Gym>();
+const agentVersion = JSON.parse(
+    readFileSync(new URL("../../kissopen-agent/package.json", import.meta.url), "utf8"),
+).version as string;
 const EXPECTED_LOGO = [
     "██╗  ██╗ ██╗ ███████╗ ███████╗  ██████╗  ██████╗  ███████╗ ███╗   ██╗",
     "██║ ██╔╝ ██║ ██╔════╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ██╔════╝ ████╗  ██║",
@@ -41,7 +45,7 @@ describe("terminal startup branding", () => {
         const finalLogoRow = startup.rows.find((row) => row.includes(EXPECTED_LOGO[5].trimEnd()));
         expect(finalLogoRow?.trimEnd()).toMatch(/1\.2\.3$/u);
         expect(startup.text).not.toContain("TERMINAL");
-        expect(startup.text).toContain("Engine: 0.0.0");
+        expect(startup.text).toContain(`Engine: ${agentVersion}`);
         expect(startup.text).not.toContain("GitHub:");
         expect(startup.text).not.toContain(">_ KISSOPEN Terminal 1.2.3");
         expect(startup.text).not.toContain("Agentic coding CLI");
