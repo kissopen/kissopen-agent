@@ -17,7 +17,9 @@ describe("StartupStatusApp", () => {
         const lines = app.render(80);
         const rendered = stripAnsi(lines.join("\n"));
         expect(lines[0]).toBe("");
-        expect(rendered).toContain("██╗  ██╗ █████╗ ██████╗ ██████╗ ██╗   ██╗");
+        expect(rendered).toContain(
+            "██╗  ██╗ ██╗ ███████╗ ███████╗  ██████╗  ██████╗  ███████╗ ███╗   ██╗",
+        );
         expect(rendered).not.toContain("TERMINAL");
         expect(rendered).toContain("1.2.3");
         expect(rendered).not.toContain("Agentic coding CLI");
@@ -102,7 +104,9 @@ describe("StartupStatusApp", () => {
         });
 
         const rendered = stripAnsi(app.render(80).join("\n"));
-        expect(rendered).toContain("██╗  ██╗ █████╗ ██████╗ ██████╗ ██╗   ██╗");
+        expect(rendered).toContain(
+            "██╗  ██╗ ██╗ ███████╗ ███████╗  ██████╗  ██████╗  ███████╗ ███╗   ██╗",
+        );
         expect(rendered).not.toContain("TERMINAL");
         expect(rendered).toContain("Resume an agent");
         expect(rendered).toContain("Startup polish");

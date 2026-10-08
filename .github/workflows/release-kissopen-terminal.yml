@@ -110,6 +110,7 @@ jobs:
               run: >-
                   pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run
                   tests/node_project_embeds_kissopen_terminal_inline.test.ts
+                  tests/startup_displays_kissopen_terminal_logo_and_version.test.ts
 
             - name: Pack the exact npm artifact
               shell: bash

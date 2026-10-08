@@ -12,8 +12,8 @@ export const DEFAULT_KISSOPEN_TERMINAL_CONFIG: KissopenTerminalConfig = {
         showUsage: false,
     },
     theme: {
-        accent: "cyan",
-        brand: "ansi:202",
+        accent: "#9184D9",
+        brand: "#9184D9",
         error: "red",
         primary: "default",
         secondary: "dim",
