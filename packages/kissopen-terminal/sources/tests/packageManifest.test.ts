@@ -10,7 +10,7 @@ describe("the published KISSOPEN Terminal package", () => {
 
         expect(manifest.name).toBe("@kissopen/kissopen-terminal");
         expect(manifest.bin).toEqual({
-            "kissopen-terminal": "./dist/main.js",
+            kissopen: "./dist/main.js",
         });
     });
 });
