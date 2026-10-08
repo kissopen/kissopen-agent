@@ -1,6 +1,6 @@
 {
     "name": "@kissopen/kissopen-terminal",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "description": "Kissopen Terminal, the embeddable terminal client for Kissopen Agent.",
     "keywords": [
         "coding-agent",
