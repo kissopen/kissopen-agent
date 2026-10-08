@@ -217,10 +217,17 @@ jobs:
                       echo "No release tag was created." >&2
                       exit 1
                   fi
-                  if node "$NPM_CLI" view "@kissopen/kissopen-terminal@$RELEASE_VERSION" version \
-                      --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
-                      echo "@kissopen/kissopen-terminal@$RELEASE_VERSION is already published." >&2
-                      exit 1
+                  published_integrity="$(node "$NPM_CLI" view "@kissopen/kissopen-terminal@$RELEASE_VERSION" dist.integrity \
+                      --registry https://registry.npmjs.org/ 2>/dev/null || true)"
+                  if [[ -n "$published_integrity" ]]; then
+                      tarball="$(find "$GITHUB_WORKSPACE/release-assets" -maxdepth 1 -name '*.tgz' -print -quit)"
+                      local_integrity="$(node -e 'process.stdout.write("sha512-" + require("node:crypto").createHash("sha512").update(require("node:fs").readFileSync(process.argv[1])).digest("base64"))' "$tarball")"
+                      if [[ "$published_integrity" != "$local_integrity" ]]; then
+                          echo "The published version differs from this verified artifact. Choose a new version." >&2
+                          exit 1
+                      fi
+                      echo "The identical verified artifact is already on npm; completing its GitHub release."
+                      echo "NPM_ALREADY_PUBLISHED=true" >> "$GITHUB_ENV"
                   fi
 
             - name: Persist the verified package version on main
@@ -246,6 +253,7 @@ jobs:
                   echo "RELEASE_COMMIT=$release_commit" >> "$GITHUB_ENV"
 
             - name: Publish with npm trusted publishing
+              if: env.NPM_ALREADY_PUBLISHED != 'true'
               shell: bash
               run: |
                   tarball="$(find "$GITHUB_WORKSPACE/release-assets" -maxdepth 1 -name '*.tgz' -print -quit)"
@@ -264,13 +272,14 @@ jobs:
               shell: bash
               run: |
                   published_version=""
-                  for attempt in {1..30}; do
+                  # npm may process a successfully accepted package for several minutes.
+                  for attempt in {1..180}; do
                       published_version="$(node "$NPM_CLI" view "@kissopen/kissopen-terminal@$RELEASE_VERSION" version \
                           --registry https://registry.npmjs.org/ 2>/dev/null || true)"
                       if [[ "$published_version" == "$RELEASE_VERSION" ]]; then
                           break
                       fi
-                      sleep 2
+                      sleep 5
                   done
                   if [[ "$published_version" != "$RELEASE_VERSION" ]]; then
                       echo "npm did not report @kissopen/kissopen-terminal@$RELEASE_VERSION after publication." >&2
