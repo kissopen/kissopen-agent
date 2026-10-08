@@ -23,7 +23,7 @@ import {
 import { isNewerSemanticVersion } from "./isNewerSemanticVersion.js";
 
 const KISSOPEN_AGENT_LATEST_RELEASE_URL =
-    "https://api.github.com/repos/slopus/kissopen-agent/releases/latest";
+    "https://api.github.com/repos/kissopen/kissopen-agent/releases/latest";
 const MAXIMUM_ARCHIVE_BYTES = 512 * 1024 * 1024;
 const INSTALL_LOCK_TIMEOUT_MS = 15 * 60_000;
 const RELEASE_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
@@ -145,7 +145,7 @@ async function installLatestKissopenAgentBinary(
             await rm(join(paths.versionsDirectory, version), { force: true, recursive: true });
             await installRelease({
                 asset,
-                archivedBinaryName: `kissopen-agent-${target}`,
+                archivedBinaryName: `kissopen-agent-${target}${target.startsWith("win32-") ? ".exe" : ""}`,
                 extractArchive: options.extractArchive ?? extractArchive,
                 fetch: options.fetch ?? globalThis.fetch,
                 paths,
@@ -169,6 +169,7 @@ export async function latestKissopenAgentReleaseVersion(
 }
 
 function releaseTarget(platform: NodeJS.Platform, arch: NodeJS.Architecture): string {
+    if (platform === "win32" && arch === "x64") return "win32-x64";
     if ((platform !== "darwin" && platform !== "linux") || (arch !== "arm64" && arch !== "x64")) {
         throw new Error(`KISSOPEN Agent does not publish a binary for ${platform}-${arch}.`);
     }
@@ -232,7 +233,10 @@ async function installRelease(options: {
     const staging = await mkdtemp(join(options.paths.versionsDirectory, ".install-"));
     const archivePath = join(staging, "kissopen-agent.tar.gz");
     const stagedBinaryPath = join(staging, options.archivedBinaryName);
-    const normalizedBinaryPath = join(staging, "kissopen-agent");
+    const normalizedBinaryPath = join(
+        staging,
+        process.platform === "win32" ? "kissopen-agent.exe" : "kissopen-agent",
+    );
     const finalDirectory = join(options.paths.versionsDirectory, options.version);
     try {
         await downloadArchive(options.fetch, options.asset, archivePath);
@@ -243,7 +247,7 @@ async function installRelease(options: {
             throw new Error("The KISSOPEN Agent release did not contain a binary.");
         await chmod(stagedBinaryPath, 0o700);
         await rename(stagedBinaryPath, normalizedBinaryPath);
-        const binary = await open(normalizedBinaryPath, "r");
+        const binary = await open(normalizedBinaryPath, process.platform === "win32" ? "r+" : "r");
         try {
             await binary.sync();
         } finally {

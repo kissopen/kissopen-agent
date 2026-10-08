@@ -84,6 +84,9 @@ jobs:
             - name: Apply the requested package version
               run: pnpm exec tsx scripts/setReleaseVersion.ts
 
+            - name: Build workspace dependencies
+              run: pnpm build
+
             - name: Run type checks
               run: pnpm --filter @kissopen/kissopen-terminal check
 
@@ -93,12 +96,6 @@ jobs:
               run: |
                   mkdir -p "$HOME"
                   pnpm --filter @kissopen/kissopen-terminal test
-
-            - name: Build embedded Kissopen Agent dependencies
-              run: pnpm --filter @kissopen/kissopen-agent-modules build
-
-            - name: Build Kissopen Terminal
-              run: pnpm --filter @kissopen/kissopen-terminal build
 
             - name: Prove inline Node.js embedding in a real terminal
               run: >-
@@ -129,7 +126,7 @@ jobs:
 
                   package_version="$(node -p "require('$smoke_root/node_modules/@kissopen/kissopen-terminal/package.json').version")"
                   test "$package_version" = "$RELEASE_VERSION"
-                  test "$("$smoke_root/node_modules/.bin/kissopen-terminal" --version)" = "Kissopen Terminal $RELEASE_VERSION"
+                  test "$("$smoke_root/node_modules/.bin/kissopen-terminal" --version)" = "KISSOPEN Terminal $RELEASE_VERSION"
 
                   cd "$smoke_root"
                   node --input-type=module <<'NODE'

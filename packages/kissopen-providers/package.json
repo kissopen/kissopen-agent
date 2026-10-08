@@ -14,7 +14,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/slopus/happy-agent.git",
+        "url": "git+https://github.com/kissopen/kissopen-agent.git",
         "directory": "packages/kissopen-providers"
     },
     "files": [

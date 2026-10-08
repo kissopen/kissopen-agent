@@ -6,6 +6,8 @@ the `kissopen` CLI, or hosted by Kissopen Desktop.
 
 ## Command line
 
+Install Node.js 24 or newer, then install the terminal client:
+
 ```sh
 pnpm add --global @kissopen/kissopen-terminal
 kissopen-terminal
@@ -63,4 +65,6 @@ that provide a custom `commandName` should route that command's `upgrade` entry 
 
 Kissopen Terminal connects to an already-running Kissopen Agent daemon first. Otherwise it starts the
 selected binary recorded under `~/.kissopen/dist/config.json`. A published installation downloads the
-latest matching macOS or Linux release once when nothing is selected yet.
+latest matching macOS, Linux, or Windows x64 release from
+[`kissopen/kissopen-agent`](https://github.com/kissopen/kissopen-agent/releases) once when nothing is
+selected yet. Downloads are checked against the release asset's SHA-256 digest before installation.

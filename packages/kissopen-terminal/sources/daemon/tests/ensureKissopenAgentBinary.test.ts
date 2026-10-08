@@ -6,7 +6,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { detectKissopenAgentUpdate } from "../detectKissopenAgentUpdate.js";
-import { ensureKissopenAgentBinary, upgradeKissopenAgentBinary } from "../ensureKissopenAgentBinary.js";
+import {
+    ensureKissopenAgentBinary,
+    upgradeKissopenAgentBinary,
+} from "../ensureKissopenAgentBinary.js";
 import { resolveLocalKissopenAgentSources } from "../ensureLocalProtocolServer.js";
 import { getKissopenDaemonPaths, kissopenAgentBinaryPath } from "../getKissopenDaemonPaths.js";
 
@@ -39,12 +42,38 @@ describe("ensureKissopenAgentBinary", () => {
             downloadedVersions: ["1.2.3"],
             selectedVersion: "1.2.3",
         });
-        expect((await stat(installed.path)).mode & 0o777).toBe(0o700);
+        if (process.platform !== "win32") {
+            expect((await stat(installed.path)).mode & 0o777).toBe(0o700);
+        }
         expect(await readdir(paths.versionsDirectory)).toEqual(["1.2.3"]);
         expect(statuses).toEqual([
             "Checking for the latest KISSOPEN Agent release.",
             "Downloading KISSOPEN Agent 1.2.3.",
         ]);
+    });
+
+    it("downloads Windows x64 from the KissOpen repository and installs the executable", async () => {
+        const paths = await temporaryPaths();
+        const archive = Buffer.from("release archive");
+        const fetch_ = releaseFetch(archive);
+        const extract = vi.fn(fakeExtract);
+
+        const installed = await ensureKissopenAgentBinary({
+            arch: "x64",
+            extractArchive: extract,
+            fetch: fetch_,
+            paths,
+            platform: "win32",
+        });
+
+        expect(String(fetch_.mock.calls[0]?.[0])).toBe(
+            "https://api.github.com/repos/kissopen/kissopen-agent/releases/latest",
+        );
+        expect(extract.mock.calls[0]?.[2]).toBe("kissopen-agent-win32-x64.exe");
+        expect(await readFile(installed.path, "utf8")).toBe("#!/bin/sh\n");
+        expect(JSON.parse(await readFile(paths.binaryConfigPath, "utf8")).selectedVersion).toBe(
+            "1.2.3",
+        );
     });
 
     it("starts from the selected downloaded version without checking GitHub", async () => {
@@ -285,6 +314,12 @@ function releaseFetch(
         if (url.endsWith("/releases/latest")) {
             return Response.json({
                 assets: [
+                    {
+                        browser_download_url: "https://downloads.example/kissopen-agent.tar.gz",
+                        digest: `sha256:${digest}`,
+                        name: `kissopen-agent-${version}-win32-x64.tar.gz`,
+                        size: archive.length,
+                    },
                     {
                         browser_download_url: "https://downloads.example/kissopen-agent.tar.gz",
                         digest: `sha256:${digest}`,
