@@ -127,6 +127,10 @@ async function startSharedDockerRunner(options: {
             `kissopen-terminal.gym.run=${runId}`,
             "--security-opt",
             "seccomp=unconfined",
+            // Bubblewrap creates mount namespaces inside the unprivileged test container.
+            // Docker's default AppArmor profile denies those mounts on Ubuntu runners.
+            "--security-opt",
+            "apparmor=unconfined",
             "--add-host",
             "host.docker.internal:host-gateway",
             "--env",

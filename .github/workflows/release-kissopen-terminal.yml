@@ -100,6 +100,12 @@ jobs:
             - name: Build the isolated terminal gym runtime
               run: pnpm build:gym
 
+            - name: Enable Linux user namespaces for the isolated gym
+              run: |
+                  if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+                      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+                  fi
+
             - name: Prove inline Node.js embedding in a real terminal
               run: >-
                   pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run

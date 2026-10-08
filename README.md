@@ -85,7 +85,7 @@ Or install Kissopen Terminal directly:
 
 ```sh
 npm install -g @kissopen/kissopen-terminal
-kissopen-terminal
+kissopen
 ```
 
 ### Step 2: Sign in to the agents you want to use
@@ -109,7 +109,7 @@ local auth store without copying tokens into Kissopen Agent.
 
 ```sh
 cd your-project
-kissopen-terminal
+kissopen
 ```
 
 Ask for what you want in plain English. Kissopen Agent can inspect the repository, edit
@@ -138,7 +138,7 @@ bootstrap, but remains optional and never blocks onboarding completion. To
 authenticate from the standalone terminal client, run:
 
 ```sh
-kissopen-terminal kissopen auth
+kissopen kissopen auth
 ```
 
 Scan the QR code with Kissopen. Terminals with Kitty or iTerm2 image support show
@@ -199,14 +199,14 @@ non-fatal background failures.
 Kissopen Agent separates inference transport from agent behavior. That lets it share one
 runtime without flattening the important differences between models.
 
-| Path              | What Kissopen Agent uses                                                                                            | What Kissopen Agent controls                                                                                               |
+| Path              | What Kissopen Agent uses                                                                                         | What Kissopen Agent controls                                                                                            |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Pi foundation     | Pi's inference adapters and terminal UI library                                                                  | The shared terminal, permissions, sessions, processes, persistence, and client protocol                                 |
 | Codex             | Pi's Codex transport, with [OpenAI's source](https://github.com/openai/codex) as the behavioral reference        | Reimplemented Codex prompts, tool contracts, reasoning controls, collaboration, approvals, review, and transcript rules |
 | Claude Code       | Anthropic's official [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) for direct inference | Reimplemented Claude-facing prompts, tools, tasks, subagents, permissions, and session behavior                         |
 | Grok Build        | xAI's OpenAI-compatible Responses API and the credentials managed by the Grok CLI                                | Adapted [Grok Build](https://github.com/xai-org/grok-build) prompt, tools, token refresh, and request metadata          |
 | Other model paths | Pi inference adapters and selected generic Pi tool definitions                                                   | A useful fallback experience without pretending those models are Codex or Claude Code                                   |
-| External clients  | Kissopen Agent's local daemon, durable event stream, and protocol                                                   | One stable API for terminal, headless, mobile, web, or other interfaces                                                 |
+| External clients  | Kissopen Agent's local daemon, durable event stream, and protocol                                                | One stable API for terminal, headless, mobile, web, or other interfaces                                                 |
 
 The Codex integration is implemented inside Kissopen Agent rather than wrapping the Codex
 CLI. Kissopen Agent follows the open-source client closely so prompts, tools, permissions,
@@ -242,7 +242,7 @@ service, pool access, or bypass Anthropic's terms and limits.
 Kissopen Agent is a unifying harness, not a replacement for every surface offered by Pi,
 Codex, or Claude Code. This table focuses on the local coding-agent experience.
 
-|                        | Kissopen Agent                                                           | [Pi](https://github.com/earendil-works/pi)                   | [Codex](https://github.com/openai/codex)  | [Claude Code](https://code.claude.com/docs/en/overview) |
+|                        | Kissopen Agent                                                        | [Pi](https://github.com/earendil-works/pi)                   | [Codex](https://github.com/openai/codex)  | [Claude Code](https://code.claude.com/docs/en/overview) |
 | ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------- |
 | Primary role           | Opinionated multi-model harness                                       | Minimal, highly extensible agent toolkit                     | OpenAI's native coding agent              | Anthropic's native coding agent                         |
 | Model access           | Codex, Claude Code, Grok Build, and optional Bedrock models           | Broad multi-provider catalog                                 | OpenAI models                             | Claude models, including supported cloud platforms      |
@@ -286,19 +286,19 @@ that prompt back in the composer without changing files in the working directory
 
 ### Headless execution
 
-Use `kissopen-terminal exec` when you want an agent result without opening the terminal UI:
+Use `kissopen exec` when you want an agent result without opening the terminal UI:
 
 ```sh
-kissopen-terminal exec "Review the current changes"
-printf 'Run the tests and fix failures' | kissopen-terminal exec
+kissopen exec "Review the current changes"
+printf 'Run the tests and fix failures' | kissopen exec
 ```
 
 Use `--json` for one machine-readable result or `--stream-json` for newline-
 delimited session events followed by the final result:
 
 ```sh
-kissopen-terminal exec --json "Summarize this repository"
-kissopen-terminal exec --stream-json "Run the test suite"
+kissopen exec --json "Summarize this repository"
+kissopen exec --stream-json "Run the test suite"
 ```
 
 Add `--debug` to an interactive or headless invocation to capture every request
@@ -308,15 +308,15 @@ streamed provider event and final response, agent events and messages, tool
 arguments and results, and run completion or failure details:
 
 ```sh
-kissopen-terminal --debug
-kissopen-terminal exec --debug "Diagnose the failing test"
+kissopen --debug
+kissopen exec --debug "Diagnose the failing test"
 ```
 
 The debug directory contains its own Git ignore rule. Its files use private
 permissions, but can still contain complete prompts, source excerpts, command
 output, and model reasoning; treat them as sensitive when sharing.
 
-Daemon logs are separate from request debug traces. `kissopen-terminal daemon status` prints both paths. The raw
+Daemon logs are separate from request debug traces. `kissopen daemon status` prints both paths. The raw
 process log is `~/.kissopen/agent/daemon.log`; it captures stdout, stderr, dependency failures, and
 fatal Node errors, and rotates to `daemon.previous.log` at 10 MiB. Structured runtime records are
 written to `~/.kissopen/agent/observation/agent.log`, including every named shutdown step, its
@@ -326,9 +326,9 @@ moves the whole `.kissopen` root, including both logs and `daemon.pid`.
 Headless runs are normal persisted sessions. Continue or branch from them later:
 
 ```sh
-kissopen-terminal exec --last "Continue with the next issue"
-kissopen-terminal exec --resume SESSION_ID "Try the alternative approach"
-kissopen-terminal exec --last --fork "Explore a separate solution"
+kissopen exec --last "Continue with the next issue"
+kissopen exec --resume SESSION_ID "Try the alternative approach"
+kissopen exec --last --fork "Explore a separate solution"
 ```
 
 ### Secrets
@@ -365,11 +365,11 @@ Use the picker to resume or fork work in the current directory. Add `--all` to
 include sessions from other directories.
 
 ```sh
-kissopen-terminal resume
-kissopen-terminal resume --last
-kissopen-terminal resume --all
-kissopen-terminal fork --last
-kissopen-terminal fork SESSION_ID
+kissopen resume
+kissopen resume --last
+kissopen resume --all
+kissopen fork --last
+kissopen fork SESSION_ID
 ```
 
 The model and provider can be changed between responses. Automatic compaction
