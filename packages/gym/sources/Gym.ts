@@ -98,6 +98,20 @@ export class Gym {
                 );
             } else {
                 await killDockerGymProcesses(this.#containerName, this.#dockerFixtureRoot);
+                // Container-created private directories belong to the image's user, which
+                // may differ from the host runner. Remove those as their owner first.
+                // Host cleanup below still verifies that the entire fixture is removed.
+                if (!/^\/gyms\/[0-9a-f-]{36}$/.test(this.#dockerFixtureRoot)) {
+                    throw new Error("Refusing to remove a Docker gym fixture outside /gyms.");
+                }
+                await execFileAsync("docker", [
+                    "exec",
+                    this.#containerName,
+                    "rm",
+                    "-rf",
+                    "--",
+                    this.#dockerFixtureRoot,
+                ]).catch(() => {});
                 if (this.#dockerFixtureStateRoot !== undefined) {
                     await execFileAsync("docker", [
                         "exec",
