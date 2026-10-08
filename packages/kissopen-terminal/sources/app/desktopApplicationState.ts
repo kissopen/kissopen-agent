@@ -132,7 +132,7 @@ export async function kissopen2RepositoryRootResolve(
     throw new KissopenTerminalUserError(
         "KISSOPEN Terminal could not find a local KISSOPEN 2 source checkout.",
         {
-            hint: "Run kissopen-terminal desktop --kissopen2-root /path/to/kissopen2.",
+            hint: "Run kissopen desktop --kissopen2-root /path/to/kissopen2.",
         },
     );
 }

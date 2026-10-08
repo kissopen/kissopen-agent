@@ -12,7 +12,7 @@
         "url": "git+https://github.com/kissopen/kissopen-agent.git"
     },
     "bin": {
-        "kissopen-terminal": "./dist/main.js"
+        "kissopen": "./dist/main.js"
     },
     "files": [
         "dist",

@@ -41,7 +41,7 @@ async function runMain(appCtx: Context, argv: readonly string[]): Promise<0 | 2 
             throw new KissopenTerminalUserError(
                 "KISSOPEN Terminal does not recognize that inspection option.",
                 {
-                    hint: "Usage: kissopen-terminal inspect [--json]",
+                    hint: "Usage: kissopen inspect [--json]",
                 },
             );
         }
@@ -53,7 +53,7 @@ async function runMain(appCtx: Context, argv: readonly string[]): Promise<0 | 2 
     if (command === "upgrade") {
         if (commandArgs.length !== 0) {
             throw new KissopenTerminalUserError("KISSOPEN Agent upgrade does not take arguments.", {
-                hint: "Usage: kissopen-terminal upgrade",
+                hint: "Usage: kissopen upgrade",
             });
         }
         await runUpgradeCommand({ ctx: appCtx, log: console.log });
@@ -88,7 +88,7 @@ async function runMain(appCtx: Context, argv: readonly string[]): Promise<0 | 2 
             throw new KissopenTerminalUserError(
                 "KISSOPEN Terminal needs to know what to do with the daemon.",
                 {
-                    hint: "Usage: kissopen-terminal daemon <start|stop|kill|status|reload>",
+                    hint: "Usage: kissopen daemon <start|stop|kill|status|reload>",
                 },
             );
         }
@@ -104,7 +104,7 @@ async function runMain(appCtx: Context, argv: readonly string[]): Promise<0 | 2 
         throw new KissopenTerminalUserError(
             `KISSOPEN Terminal does not have ${kind} called '${command}'.`,
             {
-                hint: "Run kissopen-terminal --help to see everything KISSOPEN Terminal can do.",
+                hint: "Run kissopen --help to see everything KISSOPEN Terminal can do.",
             },
         );
     }
@@ -121,7 +121,7 @@ async function runMain(appCtx: Context, argv: readonly string[]): Promise<0 | 2 
         options.permissionMode = parsePermissionMode(process.env.KISSOPEN_TERMINAL_PERMISSION_MODE);
     }
 
-    await runKissopenTerminalWithContext(appCtx, { ...options, commandName: "kissopen-terminal" });
+    await runKissopenTerminalWithContext(appCtx, { ...options, commandName: "kissopen" });
 }
 
 function cliLogger(): Logger {

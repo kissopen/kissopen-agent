@@ -13,7 +13,11 @@ describe("parseDesktopCommand", () => {
 
     it("parses the local source checkout and build controls", () => {
         expect(
-            parseDesktopCommand(["--kissopen2-root=/source/kissopen2", "--build-only", "--force-build"]),
+            parseDesktopCommand([
+                "--kissopen2-root=/source/kissopen2",
+                "--build-only",
+                "--force-build",
+            ]),
         ).toEqual({
             buildOnly: true,
             forceBuild: true,
@@ -30,7 +34,7 @@ describe("parseDesktopCommand", () => {
 
     it("rejects an unknown option", () => {
         expect(() => parseDesktopCommand(["--source"])).toThrow(
-            "Unknown kissopen-terminal desktop option '--source'.",
+            "Unknown kissopen desktop option '--source'.",
         );
     });
 });

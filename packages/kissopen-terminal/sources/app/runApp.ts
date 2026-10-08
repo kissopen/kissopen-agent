@@ -274,7 +274,12 @@ export async function runApp(ctx: Context, options: RunAppOptions = {}): Promise
             ...(projectConfigNotice === undefined ? [] : [projectConfigNotice]),
             ...(agentUpdate === undefined
                 ? []
-                : [formatKissopenAgentUpdateNotice(agentUpdate, options.commandName ?? "kissopen")]),
+                : [
+                      formatKissopenAgentUpdateNotice(
+                          agentUpdate,
+                          options.commandName ?? "kissopen",
+                      ),
+                  ]),
             ...(options.debug === true
                 ? [
                       {

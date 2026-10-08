@@ -23,7 +23,9 @@ export interface RunDesktopOptions {
 /** Builds and launches a relocatable Kissopen local app carrying the current Kissopen Terminal runtime. */
 export async function runDesktop(options: RunDesktopOptions): Promise<void> {
     if (process.platform !== "darwin") {
-        throw new KissopenTerminalUserError("The KISSOPEN desktop app currently builds only on macOS.");
+        throw new KissopenTerminalUserError(
+            "The KISSOPEN desktop app currently builds only on macOS.",
+        );
     }
 
     const desktopRoot = join(getKissopenTerminalHome(), "desktop");
@@ -35,7 +37,7 @@ export async function runDesktop(options: RunDesktopOptions): Promise<void> {
             throw new KissopenTerminalUserError(
                 "KISSOPEN Terminal has no packaged KISSOPEN desktop app to launch.",
                 {
-                    hint: "Run kissopen-terminal desktop once without --skip-build.",
+                    hint: "Run kissopen desktop once without --skip-build.",
                 },
             );
         }

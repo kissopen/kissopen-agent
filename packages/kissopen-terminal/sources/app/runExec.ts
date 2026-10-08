@@ -169,9 +169,12 @@ async function openAgent(
     client: KissopenAgentClient,
 ): Promise<Agent> {
     if (options.fork) {
-        throw new KissopenTerminalUserError("The KISSOPEN Agent API does not expose agent forking.", {
-            hint: "Resume an agent or start a new one.",
-        });
+        throw new KissopenTerminalUserError(
+            "The KISSOPEN Agent API does not expose agent forking.",
+            {
+                hint: "Resume an agent or start a new one.",
+            },
+        );
     }
     let agentId = options.resumeSessionId;
     if (options.last) {

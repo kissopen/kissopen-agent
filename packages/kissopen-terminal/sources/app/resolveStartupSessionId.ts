@@ -15,7 +15,7 @@ export interface StartupSessionSelection {
 const MAX_OFFERED_SESSIONS = 50;
 
 /**
- * Turns a `kissopen-terminal resume` or `kissopen-terminal fork` invocation into the session the TUI should open, asking the
+ * Turns a `kissopen resume` or `kissopen fork` invocation into the session the TUI should open, asking the
  * user on the startup screen when the command did not name one. Returns undefined when the user
  * dismisses the picker, which is a decision rather than a failure.
  */
@@ -40,7 +40,7 @@ export async function resolveStartupSessionId(options: {
         if (agents.length === 0) {
             throw all
                 ? new KissopenTerminalUserError("KISSOPEN Terminal has no saved agents yet.", {
-                      hint: "Run kissopen-terminal to start one.",
+                      hint: "Run kissopen to start one.",
                   })
                 : new KissopenTerminalUserError(
                       `KISSOPEN Terminal has no saved agents in ${shortenHomePath(options.cwd)}.`,
@@ -53,7 +53,7 @@ export async function resolveStartupSessionId(options: {
             sessionId = agents[0]?.agent.id;
             if (sessionId === undefined) {
                 throw new KissopenTerminalUserError("KISSOPEN Terminal has no saved agents yet.", {
-                    hint: "Run kissopen-terminal to start one.",
+                    hint: "Run kissopen to start one.",
                 });
             }
         } else {

@@ -10,14 +10,14 @@ Install Node.js 24 or newer, then install the terminal client:
 
 ```sh
 pnpm add --global @kissopen/kissopen-terminal
-kissopen-terminal
+kissopen
 ```
 
 The separate Kissopen CLI also integrates Kissopen Terminal and exposes it through `kissopen`.
 
 Released installations check for a newer Kissopen Agent in the background. When one is available,
 the terminal shows the host command to run, such as `kissopen upgrade` or
-`kissopen-terminal upgrade`. The standalone command downloads and verifies the newest Agent release,
+`kissopen upgrade`. The standalone command downloads and verifies the newest Agent release,
 selects it, and gracefully reloads the daemon onto it. A locally linked `0.0.0` Agent is offered
 that same update; running it replaces the local Agent with the published release.
 

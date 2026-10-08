@@ -24,9 +24,12 @@ export function parseDesktopCommand(arguments_: readonly string[]): RunDesktopOp
         if (argument === "--kissopen2-root") {
             kissopen2Root = arguments_[index + 1];
             if (!kissopen2Root) {
-                throw new KissopenTerminalUserError("The --kissopen2-root option needs a directory.", {
-                    hint: "Usage: kissopen-terminal desktop --kissopen2-root /path/to/kissopen2",
-                });
+                throw new KissopenTerminalUserError(
+                    "The --kissopen2-root option needs a directory.",
+                    {
+                        hint: "Usage: kissopen desktop --kissopen2-root /path/to/kissopen2",
+                    },
+                );
             }
             index += 1;
             continue;
@@ -34,14 +37,17 @@ export function parseDesktopCommand(arguments_: readonly string[]): RunDesktopOp
         if (argument.startsWith("--kissopen2-root=")) {
             kissopen2Root = argument.slice("--kissopen2-root=".length);
             if (!kissopen2Root) {
-                throw new KissopenTerminalUserError("The --kissopen2-root option needs a directory.", {
-                    hint: "Usage: kissopen-terminal desktop --kissopen2-root /path/to/kissopen2",
-                });
+                throw new KissopenTerminalUserError(
+                    "The --kissopen2-root option needs a directory.",
+                    {
+                        hint: "Usage: kissopen desktop --kissopen2-root /path/to/kissopen2",
+                    },
+                );
             }
             continue;
         }
-        throw new KissopenTerminalUserError(`Unknown kissopen-terminal desktop option '${argument}'.`, {
-            hint: "Usage: kissopen-terminal desktop [--build-only] [--skip-build | --force-build] [--kissopen2-root PATH]",
+        throw new KissopenTerminalUserError(`Unknown kissopen desktop option '${argument}'.`, {
+            hint: "Usage: kissopen desktop [--build-only] [--skip-build | --force-build] [--kissopen2-root PATH]",
         });
     }
 

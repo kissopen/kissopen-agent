@@ -126,7 +126,7 @@ jobs:
 
                   package_version="$(node -p "require('$smoke_root/node_modules/@kissopen/kissopen-terminal/package.json').version")"
                   test "$package_version" = "$RELEASE_VERSION"
-                  test "$("$smoke_root/node_modules/.bin/kissopen-terminal" --version)" = "KISSOPEN Terminal $RELEASE_VERSION"
+                  test "$("$smoke_root/node_modules/.bin/kissopen" --version)" = "KISSOPEN Terminal $RELEASE_VERSION"
 
                   cd "$smoke_root"
                   node --input-type=module <<'NODE'

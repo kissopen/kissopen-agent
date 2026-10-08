@@ -1,7 +1,7 @@
 export async function readExecPrompt(prompt: string | undefined): Promise<string> {
     if (prompt !== undefined && prompt.trim().length > 0) return prompt.trim();
     if (process.stdin.isTTY) {
-        throw new Error("Provide a prompt argument or pipe a prompt to kissopen-terminal exec.");
+        throw new Error("Provide a prompt argument or pipe a prompt to kissopen exec.");
     }
 
     process.stdin.setEncoding("utf8");

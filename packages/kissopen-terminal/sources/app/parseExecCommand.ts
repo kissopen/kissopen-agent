@@ -76,7 +76,7 @@ export function parseExecCommand(args: readonly string[]): ExecCommandOptions {
             continue;
         }
         if (arg?.startsWith("-")) {
-            throw new KissopenTerminalUserError(`Unknown kissopen-terminal exec option '${arg}'.`);
+            throw new KissopenTerminalUserError(`Unknown kissopen exec option '${arg}'.`);
         }
         if (arg !== undefined) prompt.push(arg);
     }

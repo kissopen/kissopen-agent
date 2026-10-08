@@ -30,6 +30,7 @@ export function createStartupStatusCardModel(options: {
         session: options.resumed ? "Resumed" : "New session",
         ...(options.usage === undefined ? {} : { usage: options.usage }),
         version: options.version,
-        workspace: process.env.KISSOPEN_TERMINAL_GYM_DISPLAY_WORKSPACE?.trim() || options.session.cwd,
+        workspace:
+            process.env.KISSOPEN_TERMINAL_GYM_DISPLAY_WORKSPACE?.trim() || options.session.cwd,
     };
 }

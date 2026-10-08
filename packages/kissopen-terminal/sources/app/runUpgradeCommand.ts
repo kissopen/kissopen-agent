@@ -26,8 +26,10 @@ export interface UpgradeKissopenAgentOptions {
     log?: (line: string) => void;
 }
 
-/** Public embedding boundary for the same upgrade performed by `kissopen-terminal upgrade`. */
-export async function upgradeKissopenAgent(options: UpgradeKissopenAgentOptions = {}): Promise<void> {
+/** Public embedding boundary for the same upgrade performed by `kissopen upgrade`. */
+export async function upgradeKissopenAgent(
+    options: UpgradeKissopenAgentOptions = {},
+): Promise<void> {
     await runUpgradeCommand(options);
 }
 

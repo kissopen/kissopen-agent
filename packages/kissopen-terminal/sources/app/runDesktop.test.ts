@@ -46,7 +46,12 @@ describe("KISSOPEN desktop packaging", () => {
                     to: "kissopen-terminal-runtime/node_modules",
                 },
             ],
-            files: ["dist/main.js", "dist/preload.cjs", "kissopen-terminal-main.mjs", "package.json"],
+            files: [
+                "dist/main.js",
+                "dist/preload.cjs",
+                "kissopen-terminal-main.mjs",
+                "package.json",
+            ],
             productName: "KISSOPEN Nightly",
         });
     });

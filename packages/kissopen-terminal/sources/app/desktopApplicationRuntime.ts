@@ -37,7 +37,10 @@ export async function desktopApplicationStagingPrepare(
             4,
         )}\n`,
     );
-    await writeFile(join(kissopen2Staging, "kissopen-terminal-main.mjs"), desktopApplicationEntrypoint());
+    await writeFile(
+        join(kissopen2Staging, "kissopen-terminal-main.mjs"),
+        desktopApplicationEntrypoint(),
+    );
 
     const runtimeBin = join(rigRuntime, "bin");
     await mkdir(runtimeBin, { recursive: true });
