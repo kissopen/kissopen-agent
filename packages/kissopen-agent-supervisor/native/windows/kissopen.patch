@@ -573,8 +573,8 @@ index f80efe4..7f2baa2 100644
              "version": SETUP_VERSION,
 -            "offline_username": "CodexSandboxOffline",
 -            "online_username": "CodexSandboxOnline",
-+            "offline_username": "KissopenSandboxOffline",
-+            "online_username": "KissopenSandboxOnline",
++            "offline_username": "KissopenSandboxOff",
++            "online_username": "KissopenSandboxOn",
              "codex_home": "C:\\codex-home",
              "command_cwd": "C:\\workspace",
              "read_roots": [],
@@ -1721,8 +1721,8 @@ index 1e84b6f..c7fb1ee 100644
 -pub const ONLINE_USERNAME: &str = "CodexSandboxOnline";
 +// Kissopen setup revision: repair ACL ownership from the initial Windows prototype.
 +pub const SETUP_VERSION: u32 = 8;
-+pub const OFFLINE_USERNAME: &str = "KissopenSandboxOffline";
-+pub const ONLINE_USERNAME: &str = "KissopenSandboxOnline";
++pub const OFFLINE_USERNAME: &str = "KissopenSandboxOff";
++pub const ONLINE_USERNAME: &str = "KissopenSandboxOn";
  const ERROR_CANCELLED: u32 = 1223;
  const SECURITY_BUILTIN_DOMAIN_RID: u32 = 0x0000_0020;
  const DOMAIN_ALIAS_RID_ADMINS: u32 = 0x0000_0220;

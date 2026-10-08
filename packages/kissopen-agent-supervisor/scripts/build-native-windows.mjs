@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertWindowsSystemImports } from "../../kissopen-agent/scripts/assertWindowsSystemImports.mjs";
+import { assertWindowsSandboxAccounts } from "./assertWindowsSandboxAccounts.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const metadata = JSON.parse(readFileSync(join(packageRoot, "native/windows/source.json"), "utf8"));
@@ -57,11 +58,9 @@ if (!alreadyApplied) {
     run("git", ["apply", "--check", patch]);
     run("git", ["apply", patch]);
 }
-if (
-    !readFileSync(join(source, "codex-rs/windows-sandbox-rs/src/setup.rs"), "utf8").includes(
-        `pub const SETUP_VERSION: u32 = ${metadata.setupVersion};`,
-    )
-)
+const setupSource = readFileSync(join(source, "codex-rs/windows-sandbox-rs/src/setup.rs"), "utf8");
+assertWindowsSandboxAccounts(setupSource);
+if (!setupSource.includes(`pub const SETUP_VERSION: u32 = ${metadata.setupVersion};`))
     throw new Error("Kissopen sandbox setupVersion metadata does not match the patched source");
 copyFileSync(
     join(packageRoot, "native/windows/main.rs"),

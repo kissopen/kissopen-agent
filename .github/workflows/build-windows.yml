@@ -41,6 +41,9 @@ jobs:
               with:
                   node-version: "24"
                   package-manager-cache: false
+            - name: Validate Windows sandbox account names
+              if: matrix.component == 'sandbox'
+              run: node --test packages/kissopen-agent-supervisor/scripts/tests/windowsSandboxAccounts.test.mjs
             - name: Cache native outputs by pinned source and builder
               id: native-cache
               uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -48,7 +51,7 @@ jobs:
                   path: ${{ matrix.output }}
                   # Bump the cache version when changing the compiler setup below. Package-only
                   # changes reuse native outputs; every run still tests the final binary.
-                  key: windows-gnu-rust195-v2-${{ matrix.component }}-${{ hashFiles('.gitattributes', matrix.source, matrix.script, 'packages/kissopen-agent/scripts/assertWindowsSystemImports.mjs') }}
+                  key: windows-gnu-rust195-v2-${{ matrix.component }}-${{ hashFiles('.gitattributes', matrix.source, matrix.script, 'packages/kissopen-agent/scripts/assertWindowsSystemImports.mjs') }}${{ matrix.component == 'sandbox' && hashFiles('packages/kissopen-agent-supervisor/scripts/assertWindowsSandboxAccounts.mjs') || '' }}
             - name: Install GNU native build tools
               if: steps.native-cache.outputs.cache-hit != 'true'
               id: msys2
