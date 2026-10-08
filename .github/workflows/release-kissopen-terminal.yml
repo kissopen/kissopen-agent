@@ -97,6 +97,9 @@ jobs:
                   mkdir -p "$HOME"
                   pnpm --filter @kissopen/kissopen-terminal test
 
+            - name: Build the isolated terminal gym runtime
+              run: pnpm build:gym
+
             - name: Prove inline Node.js embedding in a real terminal
               run: >-
                   pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run
