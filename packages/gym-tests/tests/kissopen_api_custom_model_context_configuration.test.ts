@@ -27,8 +27,12 @@ it.skipIf(process.platform === "win32")(
                 { id: "deepseek-v4-pro", name: "Pro" },
             ],
         });
-        const flash = Object.keys(saved.config.models).find((id) => id.endsWith("/deepseek-flash"));
-        const pro = Object.keys(saved.config.models).find((id) => id.endsWith("/deepseek-v4-pro"));
+        const flash = Object.keys(saved.config.models).find(
+            (id) => id.startsWith("custom-") && id.endsWith("/deepseek-flash"),
+        );
+        const pro = Object.keys(saved.config.models).find(
+            (id) => id.startsWith("custom-") && id.endsWith("/deepseek-v4-pro"),
+        );
         if (!flash || !pro) throw new Error("The saved custom model catalog is incomplete.");
         expect(saved.config.models[flash]?.contextWindow).toBe(131_072);
         expect(saved.config.models[flash]?.autoCompactWindow).toBe(98_304);

@@ -103,6 +103,7 @@ jobs:
                     tests/kissopen_api_chaos_files.test.ts \
                     tests/kissopen_api_files_git.test.ts \
                     tests/kissopen_api_git_matrix.test.ts \
+                    tests/kissopen_api_custom_model_context_configuration.test.ts \
                     --maxWorkers=1 \
                     --retry=0
 
