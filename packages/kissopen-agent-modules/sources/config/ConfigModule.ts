@@ -37,6 +37,14 @@ import {
 } from "./impl/agentCatalog.js";
 import { KissopenServedModels, type KissopenServedModel } from "./impl/kissopenServedModels.js";
 import { CustomProviders, discoverCustomModels } from "./impl/customProviders.js";
+import {
+    configuredCustomModelContext,
+    customModelContextInputSchema,
+    customModelContextSchema,
+    DEFAULT_CUSTOM_MODEL_CONTEXT,
+    mergeCustomModelContext,
+    validateCustomModelContext,
+} from "./impl/customModelContext.js";
 import type {
     CustomProviderDiscovery,
     CustomProviderSave,
@@ -409,6 +417,7 @@ const mcpInputSchema = Type.Record(
 );
 const partialValuesSchema = Type.Object(
     {
+        custom_model_context: Type.Optional(customModelContextInputSchema),
         skill_enablement: Type.Optional(
             Type.Record(Type.String({ minLength: 1, maxLength: 4096 }), Type.Boolean(), {
                 maxProperties: 10000,
@@ -768,6 +777,7 @@ const providerSchema = Type.Union([
 
 const resolvedValuesSchema = Type.Object(
     {
+        customModelContext: customModelContextSchema,
         profile: Type.Optional(profileBootstrapSchema),
         api: Type.Optional(apiConfigSchema),
         connections: Type.Optional(remoteConnectionsConfigSchema),
@@ -1208,6 +1218,7 @@ type PartialValues = Static<typeof partialValuesSchema>;
 type ConfigSourceKind = "global" | "local" | "runtime";
 
 const DEFAULT_VALUES: KissopenAgentConfigValues = {
+    customModelContext: { models: {} },
     defaults: {
         modelId: "openai/gpt-5.6-sol",
         permissionMode: "auto",
@@ -1688,21 +1699,35 @@ export class ConfigModule implements AgentModule {
             }
         }
         catalog.push(
-            ...this.#custom
-                .catalog()
-                .map((m) => ({ ...m, enabled: this.isProviderEnabled(m.providerId) })),
+            ...this.#custom.catalog().map((m) => {
+                const context = configuredCustomModelContext(
+                    this.configuration.values.customModelContext,
+                    m.id,
+                );
+                return {
+                    ...m,
+                    contextWindow: context?.contextWindow ?? null,
+                    ...(context === undefined
+                        ? {}
+                        : { autoCompactWindow: context.autoCompactWindow }),
+                    enabled: this.isProviderEnabled(m.providerId),
+                };
+            }),
         );
         return catalog;
     }
 
-    /** Curated context limits for one enabled provider/model route. */
+    /** Effective context limits for one enabled provider/model route. */
     modelContext(providerId: string, modelId: string): AgentModelContext | undefined {
         const enabled = this.models.some(
             (model) => model.providerId === providerId && model.id === modelId,
         );
         return enabled
             ? this.#custom.has(providerId)
-                ? { contextWindow: 32_768, autoCompactWindow: 24_576 }
+                ? (configuredCustomModelContext(
+                      this.configuration.values.customModelContext,
+                      modelId,
+                  ) ?? DEFAULT_CUSTOM_MODEL_CONTEXT)
                 : agentModelContext(modelId, this.#served.models)
             : undefined;
     }
@@ -2641,6 +2666,7 @@ export function parseKissopenAgentConfigToml(source: string): {
         unknownSettings.push(path);
     };
     const knownTopLevel = new Set([
+        "custom_model_context",
         "skill_enablement",
         "api",
         "connections",
@@ -2684,6 +2710,9 @@ export function parseKissopenAgentConfigToml(source: string): {
             ? readBoolean(table.providers, "default_enable", "providers.default_enable")
             : undefined;
     const values = {
+        ...(table.custom_model_context === undefined
+            ? {}
+            : { custom_model_context: table.custom_model_context }),
         ...(table.skill_enablement === undefined
             ? {}
             : { skill_enablement: table.skill_enablement }),
@@ -2712,6 +2741,9 @@ export function parseKissopenAgentConfigToml(source: string): {
     };
     if (!Value.Check(partialValuesSchema, values)) {
         throw new Error("The KissOpen Agent configuration contains an invalid value.");
+    }
+    if (values.custom_model_context !== undefined) {
+        validateCustomModelContext(values.custom_model_context);
     }
     return { unknownSettings, unknownSettingsTruncated, values };
 }
@@ -2751,6 +2783,14 @@ function sourceSnapshot(source: ReadSource): KissopenAgentConfigSource {
 
 function normalizeSourceValues(values: PartialValues): Record<string, unknown> {
     return {
+        ...(values.custom_model_context === undefined
+            ? {}
+            : {
+                  customModelContext: mergeCustomModelContext(
+                      { models: {} },
+                      values.custom_model_context,
+                  ),
+              }),
         ...(values.node === undefined ? {} : { node: values.node }),
         ...(values.profile === undefined ? {} : { profile: values.profile }),
         ...(values.docker === undefined ? {} : { docker: normalizeDocker(values.docker) }),
@@ -2886,6 +2926,12 @@ function mergeValues(...partials: readonly PartialValues[]): KissopenAgentConfig
     const merged = structuredClone(DEFAULT_VALUES) as MutableResolvedValues;
     const explicitProviderEnabled = new Set<string>();
     for (const partial of partials) {
+        if (partial.custom_model_context !== undefined) {
+            merged.customModelContext = mergeCustomModelContext(
+                merged.customModelContext,
+                partial.custom_model_context,
+            );
+        }
         if (partial.profile !== undefined) merged.profile = { ...partial.profile };
         if (partial.api !== undefined) merged.api = { ...merged.api, ...partial.api };
         if (partial.connections !== undefined)
@@ -3459,6 +3505,7 @@ function inferProviderType(id: string, type: unknown): ProviderType {
 
 function withoutProjectMachineSettings(values: PartialValues): PartialValues {
     const {
+        custom_model_context: _customModelContext,
         skill_enablement: _skillEnablement,
         api: _api,
         connections: _connections,
@@ -3516,6 +3563,7 @@ function calculateProvenance(...sources: readonly PartialValues[]): Record<strin
     const result: Record<string, string> = {};
     const names: readonly ConfigSourceKind[] = ["global", "local", "runtime"];
     const sectionNames: Readonly<Record<string, string>> = {
+        custom_model_context: "customModelContext",
         mcp_servers: "mcpServers",
         provider_default_enable: "providerDefaultEnable",
     };

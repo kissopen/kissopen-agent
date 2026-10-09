@@ -15,6 +15,17 @@ export const KISSOPEN_TOML_TEMPLATE = `# KISSOPEN configuration for KISSOPEN Age
 # service_tier = "default"
 # instructions = "Additional instructions for every KissOpen Agent session."
 
+# Local token budgets for custom OpenAI-compatible providers, shared by Desktop and CLI.
+# Machine configuration only. Restart the Agent after editing; confirm the service's limit first.
+# Both fields are required, and the compaction trigger must be below the context window.
+# [custom_model_context.default]
+# context_window = 32768
+# auto_compact_window = 24576
+# An exact full model ID overrides the default; do not use the provider's display name.
+# [custom_model_context.models."custom-0123456789abcdef01234567/deepseek-flash"]
+# context_window = 131072
+# auto_compact_window = 98304
+
 # Bootstrap this standalone installation from the local profile when deploying a remote.
 # Both fields are required. Startup fills missing profile fields only; later edits are preserved.
 # Machine configuration only; not supported in team mode.

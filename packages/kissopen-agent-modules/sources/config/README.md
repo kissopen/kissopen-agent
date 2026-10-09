@@ -100,6 +100,39 @@ handed to `ConfigModule.load` by whoever starts the agent, defaulting to
 is — a span, a log line, the client header sent to a server — already reads the
 configuration and would otherwise be handed the version separately.
 
+## Custom model context budgets
+
+Custom OpenAI-compatible providers use a local 32,768-token context budget and a
+24,576-token automatic compaction trigger unless machine configuration overrides them.
+Edit the Agent's global `paths.globalConfigPath` (`kissopen.toml` under the public
+configuration directory beside its `.kissopen` home), then restart the Agent. Desktop
+and CLI connected to this Agent use the same limits. Existing configuration files
+are not overwritten with the starter template.
+
+```toml
+# Default for every custom provider/model; built-in providers keep their curated limits.
+[custom_model_context.default]
+context_window = 131072
+auto_compact_window = 98304
+
+# Optional override for one exact namespaced model ID from the Agent catalog.
+[custom_model_context.models."custom-0123456789abcdef01234567/deepseek-flash"]
+context_window = 262144
+auto_compact_window = 196608
+```
+
+Each table must contain both integer fields. `context_window` accepts 8,000 through
+10,000,000 tokens; `auto_compact_window` must be positive and strictly smaller.
+Confirm the endpoint's supported window and leave room for output and tool results.
+The setting controls local compaction, not the service's actual maximum or output limit.
+No capability is inferred from a model name, and model discovery does not change these limits.
+
+An exact model override wins over the custom default; otherwise the conservative local
+budget applies. Runtime machine configuration takes precedence over global configuration
+and replaces each complete pair, while retaining other model overrides. Project
+`kissopen.toml` cannot change these budgets. Explicit limits appear in the existing model
+catalog and usage fields; unconfigured custom models keep `contextWindow: null` in the catalog.
+
 ## The accounts
 
 Configuration is not only what the files say. This module owns the accounts too: `providers` is one

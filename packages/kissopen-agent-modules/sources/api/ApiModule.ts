@@ -6342,6 +6342,9 @@ export class ApiModule implements AgentModule {
                     : { customReasoning: route.customReasoning }),
                 name: route.name,
                 contextWindow: route.contextWindow,
+                ...(route.autoCompactWindow === undefined
+                    ? {}
+                    : { autoCompactWindow: route.autoCompactWindow }),
                 efforts: [...route.effortLevels],
                 defaultEffort: route.defaultEffort,
                 serviceTiers: [...(route.serviceTiers ?? [])],
@@ -6809,6 +6812,7 @@ interface ApiModelDefinition {
     readonly customReasoning?: CustomModelReasoning | null;
     readonly name: string;
     readonly contextWindow: number | null;
+    readonly autoCompactWindow?: number;
     readonly efforts: string[];
     readonly defaultEffort: string;
     readonly serviceTiers: string[];

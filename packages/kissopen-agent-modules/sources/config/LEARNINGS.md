@@ -294,6 +294,15 @@ discovery. Provider scans must not disable these explicit connections. IDs are n
 wire IDs remain unchanged. The shared Chat Completions implementation handles streaming, tools
 and compaction; no context or tool capability is inferred from names. Unknown limits remain
 null in the catalog, with an explicit conservative 32K local budget and a 24K compaction trigger.
+Hardcoding that budget for every custom endpoint made long coding sessions compact too early.
+Machine `custom_model_context.default` and exact namespaced `custom_model_context.models` tables
+now accept complete `context_window` / `auto_compact_window` pairs. Per-model values win over the
+default, runtime pairs override global pairs without erasing other models, and project files
+cannot change token budgets. The threshold must be positive and below the bounded integer window.
+Only explicitly configured limits become known catalog values; missing limits retain the old
+budget. The shared Config answer drives both usage reporting and inference compaction, so Desktop
+and CLI cannot disagree. File edits take effect after Agent restart and never alter endpoint keys,
+model IDs, discovery, output ceilings, or built-in provider limits.
 An existing stateless session reopens its shared-protocol delegate on the next request when its
 private record changes, so key updates and model selections do not silently retain stale values.
 

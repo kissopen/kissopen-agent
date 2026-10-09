@@ -60,6 +60,7 @@ export interface SmartProviderRoute {
 export type ConfiguredAgentModel = AgentModel & {
     readonly customReasoning?: CustomModelReasoning | null;
     readonly contextWindow: number | null;
+    readonly autoCompactWindow?: number;
     readonly enabled: boolean;
 };
 
