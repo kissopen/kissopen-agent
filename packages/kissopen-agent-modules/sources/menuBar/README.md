@@ -4,6 +4,10 @@ A small native macOS app that puts the agents in the system menu bar. Clicking i
 agents are working and in which projects, how much of each provider's session and week is spent,
 and the tokens spent in the last hour and day.
 
+The menu ends with **Open KissOpen**, which opens or activates the installed Desktop app, and
+**Quit Menu Bar**, which closes the menu bar item while leaving the Agent running. Quitting exits
+cleanly so the daemon does not restart the item until the daemon itself starts again.
+
 ```text
 MenuBarModule ──spawns──> kissopen-menu-bar (Swift, AppKit)
       │                          │

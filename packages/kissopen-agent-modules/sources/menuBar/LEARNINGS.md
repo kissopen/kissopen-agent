@@ -33,11 +33,13 @@ open, and the exit of the parent process itself through a dispatch process sourc
 alone was the original mechanism and is not sufficient, because anything else holding that pipe open
 keeps the app alive after the daemon is gone.
 
-## The status item shows no count and the menu has no footer
+## The status item shows no count; the footer opens Desktop or closes the menu bar
 
-The bar carries the glyph alone: no number, no badge. The menu ends after the token totals — there
-is no version line, no ready/draining state, and no Quit item. A Quit item would be a lie, because
-the module would start the app again. These were explicit product decisions, not omissions.
+The bar carries the glyph alone: no number, no badge. Below the token totals, Open KissOpen opens
+or activates the installed open-source Desktop app by its bundle identifier. Quit Menu Bar closes
+this status item alone, leaving Agent sessions and scheduled work running. It exits cleanly, so
+the existing supervisor does not restart it during this daemon's lifetime. A later daemon start
+shows the item again. There is no version line or ready/draining state in the menu.
 
 ## What the menu shows
 
@@ -57,11 +59,13 @@ Reset always includes a clock time. A weekday or date is added only when the res
 When the window ends in less than three hours, remaining time is added too, such as
 "4:34 PM · in 2h 14m".
 
-## The glyph is a star, drawn at full strength
+## The glyph is the KissOpen mark, drawn at full strength
 
-The icon is a five-pointed star: still when nothing is running, turning slowly while agents work.
-It replaced an equalizer of three bars, which was both the wrong mark and, at rest, indistinguishable
-from an ellipsis.
+The icon uses the canonical KissOpen mark, matching the Desktop menu bar templates. It replaces
+the inherited five-pointed star so the Agent is recognizable as KissOpen. Keep the canonical two
+contours, rounded joins, and proportions; do not invent a separate Agent logo. The mark stays
+still when nothing is running and turns slowly while agents work. Its canvas leaves room for
+every rotation so activity never clips the mark or changes the status item's width.
 
 Draw the template image with solid black and no alpha. An earlier version dimmed the resting glyph
 to 55% alpha, which made it visibly washed out beside every other menu bar icon — macOS already
@@ -75,9 +79,9 @@ A provider ID is whatever someone called their account, so `bulka_kissopen_codex
 ## The app is a reader
 
 It speaks the ordinary HTTP API over the daemon's private socket with the same bearer token as any
-other client. It performs no mutation, and it must not gain one. The event stream is a change
-signal only: every snapshot the menu draws is re-read, so an unfamiliar or missed event cannot
-leave stale state on screen.
+other client. It performs no daemon mutation. Opening Desktop and closing the menu bar are local
+application actions. The event stream is a change signal only: every snapshot the menu draws is
+re-read, so an unfamiliar or missed event cannot leave stale state on screen.
 
 ## Supervision waits for exit, not for the streams to close
 

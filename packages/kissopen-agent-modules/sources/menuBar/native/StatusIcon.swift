@@ -1,55 +1,51 @@
 import AppKit
 
-/// The glyph in the menu bar: a star with softened corners, still while nothing is happening and
-/// turning while agents work. It is drawn as a template image at full strength, so macOS tints it
+/// The KissOpen mark, still while nothing is happening and turning while agents work.
+/// It is drawn as a template image at full strength, so macOS tints it
 /// exactly like every other menu bar icon and inverts it while the menu is open.
 enum StatusIcon {
-    private static let size = NSSize(width: 16, height: 16)
-    /// The finished star: how far the points reach, and how deep the notches cut.
-    private static let radius: CGFloat = 7.5
-    private static let waistRatio: CGFloat = 0.46
-    /// How far the points and notches are rounded off. Enough to soften every corner, little
-    /// enough that the arms stay distinct — past about a fifth of the radius it reads as a flower.
-    private static let rounding: CGFloat = 0.9
+    // Room for every angle of the 16 × 15 mark, without clipping or changing the item's width.
+    private static let size = NSSize(width: 22, height: 22)
+    private static let markSize = NSSize(width: 16, height: 15)
 
-    private static let arms = 5
+    // Canonical KissOpen SVG geometry: viewBox 13.5 14.5 37 35, stroke width 5.
+    // These are the same two contours used by the Desktop menu bar templates.
+    private static let contours: [[NSPoint]] = [
+        [
+            NSPoint(x: 16, y: 17), NSPoint(x: 26, y: 29),
+            NSPoint(x: 26, y: 35), NSPoint(x: 16, y: 47),
+        ],
+        [
+            NSPoint(x: 48, y: 17), NSPoint(x: 38, y: 29),
+            NSPoint(x: 38, y: 35), NSPoint(x: 48, y: 47),
+        ],
+    ]
 
     /// `phase` is the rotation in radians, which advances only while work is in flight.
     static func image(phase: Double, working: Bool) -> NSImage {
         let image = NSImage(size: size, flipped: false) { _ in
-            // Rounding comes from stroking a smaller, sharper star with round joins: the stroke
-            // grows the shape back to full size while turning every corner, point and notch alike,
-            // into an arc. Tangent arcs cannot do this — the points are far too sharp to fit one.
-            let path = starPath(rotation: working ? phase : 0)
-            path.lineJoinStyle = .round
-            path.lineWidth = rounding * 2
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            context.saveGState()
+            defer { context.restoreGState() }
+            context.translateBy(x: size.width / 2, y: size.height / 2)
+            context.rotate(by: working ? CGFloat(phase) : 0)
+            context.scaleBy(x: markSize.width / 37, y: -markSize.height / 35)
+            context.translateBy(x: -32, y: -32)
             NSColor.black.setFill()
             NSColor.black.setStroke()
-            path.fill()
-            path.stroke()
+            for contour in contours {
+                let path = NSBezierPath()
+                path.move(to: contour[0])
+                for point in contour.dropFirst() { path.line(to: point) }
+                path.close()
+                path.lineJoinStyle = .round
+                path.lineWidth = 5
+                path.fill()
+                path.stroke()
+            }
             return true
         }
         image.isTemplate = true
         return image
-    }
-
-    private static func starPath(rotation: Double) -> NSBezierPath {
-        let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        let reach = radius - rounding
-        let waist = radius * waistRatio - rounding
-        let path = NSBezierPath()
-        let step = Double.pi / Double(arms)
-        for corner in 0..<(arms * 2) {
-            // Measured from straight up, so a resting star sits upright.
-            let angle = Double.pi / 2 + rotation + Double(corner) * step
-            let distance = corner.isMultiple(of: 2) ? reach : waist
-            let point = NSPoint(
-                x: center.x + distance * CGFloat(cos(angle)),
-                y: center.y + distance * CGFloat(sin(angle))
-            )
-            if corner == 0 { path.move(to: point) } else { path.line(to: point) }
-        }
-        path.close()
-        return path
     }
 }

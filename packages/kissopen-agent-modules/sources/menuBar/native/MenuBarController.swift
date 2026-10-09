@@ -149,7 +149,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
                 self.phase += MenuBarController.spinPerFrame
                 self.statusItem.button?.image = StatusIcon.image(phase: self.phase, working: true)
             }
-            // The menu bar keeps drawing while a menu is tracking, so the star keeps turning.
+            // The menu bar keeps drawing while a menu is tracking, so the mark keeps turning.
             RunLoop.main.add(timer, forMode: .eventTracking)
             animation = timer
         }
@@ -168,6 +168,42 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }) {
             menu.addItem(item)
         }
+        menu.addItem(.separator())
+        let open = NSMenuItem(title: "Open KissOpen", action: #selector(openKissOpen(_:)), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        let quit = NSMenuItem(title: "Quit Menu Bar", action: #selector(quitMenuBar(_:)), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+    }
+
+    @objc private func openKissOpen(_ sender: NSMenuItem) {
+        guard let url = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.kissopen.opensource.desktop"
+        ) else {
+            showApplicationError("Install KissOpen Desktop to open it from the menu bar.")
+            return
+        }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) {
+            [weak self] _, error in
+            if let error {
+                DispatchQueue.main.async { self?.showApplicationError(error.localizedDescription) }
+            }
+        }
+    }
+
+    private func showApplicationError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Could not open KissOpen"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    @objc private func quitMenuBar(_ sender: NSMenuItem) {
+        // A clean exit tells the daemon's supervisor to leave the item closed.
+        // The Agent keeps running so sessions and scheduled work are unaffected.
+        NSApplication.shared.terminate(sender)
     }
 
     // MARK: - NSMenuDelegate
