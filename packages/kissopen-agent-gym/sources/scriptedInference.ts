@@ -170,6 +170,8 @@ export interface ScriptedInferenceOptions {
 export interface ScriptedInference {
     readonly models: readonly AgentModel[];
     readonly providers: AgentProviders;
+    /** A daemon owns its mutable registry; the script and request log survive restarts. */
+    createProviders(): AgentProviders;
     readonly log: GymInferenceLog;
 }
 
@@ -218,8 +220,12 @@ export function createScriptedInference(options: ScriptedInferenceOptions = {}):
         },
     });
 
-    const providers = new AgentProviders();
-    providers.add(GYM_PROVIDER_ID, provider, "gym");
+    const createProviders = (): AgentProviders => {
+        const registry = new AgentProviders();
+        registry.add(GYM_PROVIDER_ID, provider, "gym");
+        return registry;
+    };
+    const providers = createProviders();
 
     const log: GymInferenceLog = {
         requests,
@@ -260,7 +266,7 @@ export function createScriptedInference(options: ScriptedInferenceOptions = {}):
         lastTools: () => (requests.at(-1)?.tools ?? []).map((tool) => tool.name),
     };
 
-    return { log, models: options.models ?? GYM_MODELS, providers };
+    return { createProviders, log, models: options.models ?? GYM_MODELS, providers };
 }
 
 interface GymProviderOptions {

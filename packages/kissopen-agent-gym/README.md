@@ -90,16 +90,16 @@ interface AgentGymOptions {
 }
 ```
 
-| Option           | Default           | Purpose                                                                                                            |
-| ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Option           | Default           | Purpose                                                                                                                        |
+| ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `config`         | none              | Extra TOML appended to the installation's `Kissopen/Config/kissopen.toml` on macOS or `kissopen/config/kissopen.toml` on Linux |
-| `compaction`     | empty completion  | How a scripted compaction answers                                                                                  |
-| `files`          | `{}`              | Files written into the agent's working directory before it starts                                                  |
-| `inference`      | `[]`              | The scripted turns, or a handler answering each request                                                            |
-| `models`         | two gym models    | Replaces the catalog the gym serves                                                                                |
-| `permissionMode` | the agent default | Writes `[defaults] permission_mode` into the configuration                                                         |
-| `timeoutMs`      | `10_000`          | The default budget for every `waitFor` in this gym                                                                 |
-| `version`        | `"gym"`           | The version the daemon reports                                                                                     |
+| `compaction`     | empty completion  | How a scripted compaction answers                                                                                              |
+| `files`          | `{}`              | Files written into the agent's working directory before it starts                                                              |
+| `inference`      | `[]`              | The scripted turns, or a handler answering each request                                                                        |
+| `models`         | two gym models    | Replaces the catalog the gym serves                                                                                            |
+| `permissionMode` | the agent default | Writes `[defaults] permission_mode` into the configuration                                                                     |
+| `timeoutMs`      | `10_000`          | The default budget for every `waitFor` in this gym                                                                             |
+| `version`        | `"gym"`           | The version the daemon reports                                                                                                 |
 
 A fixture is a string, a `Uint8Array`, or `{ content, mode }`. Paths are relative to the workspace
 and may not leave it.
@@ -252,6 +252,9 @@ directory listing legitimately contains it.
 `gym.restart()` closes the daemon and starts another one on the same folder. Use it for durability:
 history, installation identity, the root chat, event ordering, and unfinished work after a crash.
 The scripted model and its log survive the restart, so a script may span both processes.
+Each daemon receives a fresh mutable provider registry. Custom providers saved through the API
+are reloaded from the installation's files, rather than carrying factories from the previous
+daemon and registering the same provider twice.
 
 ## Waiting
 

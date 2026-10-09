@@ -263,7 +263,7 @@ class AgentGymInstance implements AgentGym {
             kissopenHome: this.#home.kissopenHome,
             inference: {
                 models: this.#scripted.models,
-                providers: this.#scripted.providers,
+                providers: this.#scripted.createProviders(),
             },
             version: this.#options.version ?? "gym",
         });
@@ -459,7 +459,10 @@ class AgentGymInstance implements AgentGym {
         }
     }
 
-    stream(path = "/v0/events/stream", options: GymEventStreamOptions = {}): KissopenAgentEventStream {
+    stream(
+        path = "/v0/events/stream",
+        options: GymEventStreamOptions = {},
+    ): KissopenAgentEventStream {
         if (path !== "/v0/events/stream") {
             throw new Error("The typed event stream only supports /v0/events/stream.");
         }

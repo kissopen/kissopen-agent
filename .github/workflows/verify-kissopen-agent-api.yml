@@ -97,13 +97,18 @@ jobs:
                   pnpm --filter @kissopen/kissopen-agent-gym check
                   pnpm --filter @kissopen/kissopen-terminal-gym-tests check
 
+            - name: Verify custom context configuration across restart
+              run: |
+                  pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run \
+                    tests/kissopen_api_custom_model_context_configuration.test.ts \
+                    --maxWorkers=1 --retry=0
+
             - name: Run the Linux Files and Git preflight
               run: |
                   pnpm --filter @kissopen/kissopen-terminal-gym-tests exec vitest run \
                     tests/kissopen_api_chaos_files.test.ts \
                     tests/kissopen_api_files_git.test.ts \
                     tests/kissopen_api_git_matrix.test.ts \
-                    tests/kissopen_api_custom_model_context_configuration.test.ts \
                     --maxWorkers=1 \
                     --retry=0
 

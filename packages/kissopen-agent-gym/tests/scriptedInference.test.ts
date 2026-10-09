@@ -7,6 +7,31 @@ import { createScriptedInference, GYM_MODEL_ID, GYM_PROVIDER_ID } from "../sourc
 const ctx = createRootContext().named("scripted-inference-test");
 
 describe("scripted inference", () => {
+    it("gives each daemon its own registry while preserving script progress", async () => {
+        const scripted = createScriptedInference({
+            inference: [
+                { content: [{ text: "before restart", type: "text" }] },
+                { content: [{ text: "after restart", type: "text" }] },
+            ],
+        });
+        const first = scripted.createProviders();
+        const provider = await first.resolve(GYM_PROVIDER_ID, GYM_MODEL_ID);
+        if (provider === null) throw new Error("The gym provider is missing.");
+        first.add("custom-fixture", provider, "gym");
+        const before = await provider.session("before", { instructions: "Answer.", tools: [] });
+        expect(await runText(before, "First message.")).toBe("before restart");
+        await before.destroy();
+
+        const second = scripted.createProviders();
+        expect(second.ids).toEqual([GYM_PROVIDER_ID]);
+        const nextProvider = await second.resolve(GYM_PROVIDER_ID, GYM_MODEL_ID);
+        if (nextProvider === null) throw new Error("The restarted gym provider is missing.");
+        const after = await nextProvider.session("after", { instructions: "Answer.", tools: [] });
+        expect(await runText(after, "Second message.")).toBe("after restart");
+        expect(scripted.log.requests.map((request) => request.callIndex)).toEqual([0, 1]);
+        await after.destroy();
+    });
+
     it("keeps detached naming requests out of fixed agent-turn scripts", async () => {
         const scripted = createScriptedInference({
             inference: [{ content: [{ text: "agent answer", type: "text" }] }],
