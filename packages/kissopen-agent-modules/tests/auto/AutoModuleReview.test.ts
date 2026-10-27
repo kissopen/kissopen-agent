@@ -1,4 +1,6 @@
 import { mkdir, symlink } from "node:fs/promises";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import { dirname, join } from "node:path";
 
 import {
@@ -121,6 +123,8 @@ async function reviewWorld(
         readonly models?: readonly AgentModel[];
         readonly failResolution?: (model: string | undefined) => boolean;
         readonly failSession?: boolean;
+        readonly beforeStart?: (config: ConfigModule) => Promise<void>;
+        readonly afterStart?: (config: ConfigModule) => Promise<AgentModel>;
     } = {},
 ): Promise<{
     world: ReviewWorld;
@@ -182,7 +186,9 @@ async function reviewWorld(
         modules: { compute: { cwd: installation.publicHome } },
     });
 
+    await options.beforeStart?.(installation.config);
     const hooks = await resolveModuleHooks(lifetime, auto, {} as unknown as AgentSystemRef);
+    const active = await options.afterStart?.(installation.config);
 
     // A review is only ever requested mid-turn, so the reviewed agent's live model route has already
     // been observed by the base inference hook. Reproduce that one observation here.
@@ -192,9 +198,9 @@ async function reviewWorld(
             {
                 agent: {
                     id: MAIN_AGENT_ID,
-                    provider: "scripted",
-                    model: options.models?.[0]?.id ?? "scripted/model",
-                    effort: "low",
+                    provider: active?.providerId ?? "scripted",
+                    model: active?.id ?? options.models?.[0]?.id ?? "scripted/model",
+                    effort: active?.defaultEffort ?? "low",
                 },
             } as unknown as AgentModuleScope,
             {} as unknown as AgentBaseInferenceStart,
@@ -250,6 +256,96 @@ afterEach(async () => {
 });
 
 describe("AutoModule reviewer", () => {
+    it.each(["added", "updated", "denied", "disabled"])(
+        "reviews a custom model %s after startup without inventing a Codex reviewer route",
+        async (scenario) => {
+            const requestedModels: string[] = [];
+            const server = createServer(async (request, response) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of request) chunks.push(Buffer.from(chunk));
+                const body = JSON.parse(Buffer.concat(chunks).toString());
+                requestedModels.push(body.model);
+                response.writeHead(200, { "Content-Type": "text/event-stream" });
+                response.end(
+                    `data: ${JSON.stringify({
+                        id: "review-fixture",
+                        object: "chat.completion.chunk",
+                        created: 1,
+                        model: "deepseek-flash",
+                        choices: [
+                            {
+                                index: 0,
+                                delta: {
+                                    content: taggedVerdict({
+                                        outcome: scenario === "denied" ? "deny" : "allow",
+                                        risk_level: "low",
+                                        user_authorization: "high",
+                                    }),
+                                },
+                                finish_reason: null,
+                            },
+                        ],
+                    })}\n\ndata: ${JSON.stringify({
+                        id: "review-fixture",
+                        object: "chat.completion.chunk",
+                        created: 1,
+                        model: "deepseek-flash",
+                        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                    })}\n\ndata: [DONE]\n\n`,
+                );
+            });
+            server.listen(0, "127.0.0.1");
+            await once(server, "listening");
+            const address = server.address();
+            if (!address || typeof address === "string") throw new Error("Missing fixture address");
+            try {
+                const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+                const { world, review } = await reviewWorld([], {
+                    beforeStart:
+                        scenario === "updated"
+                            ? async (config) => {
+                                  await config.saveCustomProvider(createRootContext(), {
+                                      mutationId: "initial-model",
+                                      baseUrl,
+                                      apiKey: "fixture-key",
+                                      models: [{ id: "old-model", name: "Old model" }],
+                                  });
+                              }
+                            : async () => {},
+                    afterStart: async (config) => {
+                        await config.saveCustomProvider(createRootContext(), {
+                            mutationId: "review-model",
+                            baseUrl,
+                            apiKey: "fixture-key",
+                            models: [{ id: "deepseek-flash", name: "Flash" }],
+                        });
+                        const model = config.offeredModels.find((m) =>
+                            m.id.endsWith("/deepseek-flash"),
+                        )!;
+                        if (scenario === "disabled")
+                            config.setProviderEnabled(model.providerId, false);
+                        return model;
+                    },
+                });
+                worlds.push(world);
+                if (scenario === "disabled") {
+                    await expect(review()).rejects.toThrow(/disabled/i);
+                    expect(requestedModels).toEqual([]);
+                } else {
+                    await expect(review()).resolves.toMatchObject({
+                        outcome: scenario === "denied" ? "denied" : "allowed",
+                    });
+                    expect(requestedModels).toEqual(["deepseek-flash"]);
+                }
+            } finally {
+                server.closeAllConnections();
+                await new Promise<void>((resolve, reject) =>
+                    server.close((e) => (e ? reject(e) : resolve())),
+                );
+            }
+        },
+    );
+
     const fallbackModels: readonly AgentModel[] = [
         "anthropic/opus-5",
         "anthropic/sonnet-5",
@@ -426,9 +522,12 @@ describe("AutoModule reviewer", () => {
     it("refuses to start when the configuration enables no model to review with", async () => {
         const context = createRootContext().named("auto-review-no-models");
         const emptyCatalog = await autoWorld();
-        const config = await ConfigModule.load(emptyCatalog.config.configuration.paths.kissopenHome, {
-            inference: { models: [], providers: new AgentProviders() },
-        });
+        const config = await ConfigModule.load(
+            emptyCatalog.config.configuration.paths.kissopenHome,
+            {
+                inference: { models: [], providers: new AgentProviders() },
+            },
+        );
         const auto = new AutoModule(
             config,
             emptyCatalog.compute,

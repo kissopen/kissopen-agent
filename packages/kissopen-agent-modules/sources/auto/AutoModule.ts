@@ -130,6 +130,7 @@ export class AutoModule implements AgentModule {
     #system: AgentSystemLocal | undefined;
     /** The private catalog the reviewer resolves its model from. */
     #catalog: readonly AgentModel[] = [];
+    readonly #privateProviders = new AgentProviders();
     /** Live private reviewer agents this process has built, keyed by the main agent they review. */
     readonly #reviewers = new Map<string, Agent>();
     /** A route change must rebuild the private conversation and resend the complete evidence. */
@@ -182,25 +183,7 @@ export class AutoModule implements AgentModule {
         // and nothing it does reaches the reviewed agents' database.
         const lifetime = detach(ctx).named("auto-review");
         this.#lifetime = lifetime;
-        const main = this.#config.providers;
-        const privateProviders = new AgentProviders();
-        for (const id of main.ids) {
-            const type = main.typeOf(id);
-            if (type === null) continue;
-            // A private, read-only resolving copy. A resolution failure is an unavailable review,
-            // never silent permission to use another provider.
-            privateProviders.add(
-                id,
-                async ({ model }) => {
-                    const resolved = await main.resolve(id, model);
-                    if (resolved === null) {
-                        throw new Error(`The reviewer provider "${id}" could not be resolved.`);
-                    }
-                    return resolved;
-                },
-                type,
-            );
-        }
+        this.#refreshReviewCatalog();
         const models = this.#config.offeredModels;
         // The account a reviewer agent is created on is the one every agent starts on: the first
         // entry of the configured catalog. Without one there is nothing to review with, and saying
@@ -211,15 +194,11 @@ export class AutoModule implements AgentModule {
                 "Automatic permission review cannot start because no provider model is configured.",
             );
         }
-        this.#catalog = buildAutoReviewCatalog({
-            models,
-            typeOf: (id) => privateProviders.typeOf(id),
-        });
         this.#system = await AgentSystemLocal.create(lifetime, this.#storage, {
             models: this.#catalog,
             modules: [this.#runtime, new AutoReviewComputeModule(this.#compute, lifetime)],
             provider,
-            providers: privateProviders,
+            providers: this.#privateProviders,
             shutdownName: "auto-agent-system",
         });
         return this.#hooks;
@@ -401,6 +380,38 @@ export class AutoModule implements AgentModule {
 
     // ---- Review ------------------------------------------------------------------------------
 
+    /** Refresh live configuration without sharing the private system's mutable registry. */
+    #refreshReviewCatalog(): void {
+        const main = this.#config.providers;
+        const ids = new Set(this.#config.providerIds);
+        for (const id of this.#privateProviders.ids) {
+            if (!ids.has(id) || this.#privateProviders.typeOf(id) !== main.typeOf(id)) {
+                this.#privateProviders.remove(id);
+            }
+        }
+        for (const id of ids) {
+            const type = main.typeOf(id);
+            if (type === null || this.#privateProviders.typeOf(id) !== null) continue;
+            this.#privateProviders.add(
+                id,
+                async ({ model }) => {
+                    // Resolve through ConfigModule's live enablement and credential gates.
+                    const resolved = await this.#config.providers.resolve(id, model);
+                    if (resolved === null) {
+                        throw new Error(`The reviewer provider "${id}" could not be resolved.`);
+                    }
+                    return resolved;
+                },
+                type,
+            );
+        }
+        this.#catalog = buildAutoReviewCatalog({
+            models: this.#config.offeredModels,
+            // Custom endpoints share Codex tool compatibility, not OpenAI's model catalog.
+            typeOf: (id) => (this.#config.isCustomProvider(id) ? null : main.typeOf(id)),
+        });
+    }
+
     async #review(
         ctx: Context,
         request: PermissionReviewRequest,
@@ -414,6 +425,7 @@ export class AutoModule implements AgentModule {
         request: PermissionReviewRequest,
     ): Promise<PermissionReviewDecision> {
         this.#requireSystem();
+        this.#refreshReviewCatalog();
         const routes = reviewerModelsForAgent({
             models: this.#catalog,
             active: this.#activeRoute(request),

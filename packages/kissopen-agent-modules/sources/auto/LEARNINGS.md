@@ -1,5 +1,13 @@
 # Auto module — learnings
 
+- A startup-only reviewer catalog missed custom providers and models saved while the daemon was
+  running. Main inference worked, but each Auto review failed to resolve its route, eventually
+  tripping the permission refusal circuit and aborting the turn. Refresh the private resolving
+  registry and reviewer catalog from ConfigModule before each review, retaining its live
+  enablement and credential gates. Custom endpoints use Codex-compatible tools but do not
+  necessarily serve OpenAI's hidden reviewer models; review on their configured active model
+  instead of synthesizing vendor-only routes. Missing or disabled routes still fail closed.
+
 - The converter used to change every critical-risk allow into a denial while keeping the
   reviewer's approval rationale. An informed user approval reached the reviewer and produced an
   allow, but the agent was falsely told the reviewer had refused again. Critical-risk verdicts
