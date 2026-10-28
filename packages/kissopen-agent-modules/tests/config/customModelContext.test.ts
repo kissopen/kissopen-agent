@@ -29,6 +29,7 @@ async function fixture() {
         models: [
             { id: "deepseek-flash", name: "Flash" },
             { id: "deepseek-v4-pro", name: "Pro" },
+            { id: "unknown-model", name: "Unknown" },
         ],
     });
     await mkdir(baseline.configuration.paths.configHome, { recursive: true });
@@ -39,12 +40,12 @@ describe("file-configured custom model context", () => {
     it("keeps the conservative local budget when no limit is declared", async () => {
         const { home, providerId } = await fixture();
         const config = await ConfigModule.load(home);
-        expect(config.modelContext(providerId, `${providerId}/deepseek-flash`)).toEqual({
+        expect(config.modelContext(providerId, `${providerId}/unknown-model`)).toEqual({
             contextWindow: 32_768,
             autoCompactWindow: 24_576,
         });
         expect(
-            config.catalog.find((model) => model.id === `${providerId}/deepseek-flash`)
+            config.catalog.find((model) => model.id === `${providerId}/unknown-model`)
                 ?.contextWindow,
         ).toBeNull();
     });
@@ -91,11 +92,11 @@ describe("file-configured custom model context", () => {
         );
         expect(
             config.modelContext(providerId, `${providerId}/deepseek-v4-pro`)?.contextWindow,
-        ).toBe(32_768);
+        ).toBe(1_000_000);
         expect(
             config.catalog.find((model) => model.id === `${providerId}/deepseek-v4-pro`)
                 ?.contextWindow,
-        ).toBeNull();
+        ).toBe(1_000_000);
         expect(config.modelContext("codex", "openai/gpt-5.6-sol")?.contextWindow).toBe(272_000);
     });
 

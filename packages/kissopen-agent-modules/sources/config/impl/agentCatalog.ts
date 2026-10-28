@@ -219,6 +219,14 @@ export function curatedCustomModelReasoning(wireId: string): CustomModelReasonin
     return Value.Check(customModelReasoningSchema, reasoning) ? reasoning : undefined;
 }
 
+/** Resolve only an exact canonical or wire ID in the existing local context catalog. */
+export function curatedCustomModelContext(wireId: string): AgentModelContext | undefined {
+    const candidate = [...CATALOG, ...BEDROCK_CATALOG].find(
+        (entry) => entry.id === wireId || entry.id.slice(entry.id.indexOf("/") + 1) === wireId,
+    );
+    return candidate === undefined ? undefined : agentModelContext(candidate.id);
+}
+
 /**
  * Every model the configuration actually enables, with the configured default first.
  *

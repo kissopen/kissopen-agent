@@ -24,13 +24,28 @@ import {
     type SessionCompaction,
 } from "@kissopen/kissopen-providers";
 import type { Context } from "@steve.kite/stdlib";
-import { curatedCustomModelReasoning, type ConfiguredAgentModel } from "./agentCatalog.js";
+import {
+    curatedCustomModelReasoning,
+    curatedCustomModelContext,
+    type AgentModelContext,
+    type ConfiguredAgentModel,
+} from "./agentCatalog.js";
+import {
+    discoveredModelContext,
+    discoveredModelContextSchema,
+    upstreamContextProperties,
+} from "./discoveredModelContext.js";
 
 const recordSchema = Type.Object({
     ...customProviderDiscoverySchema.properties,
     name: customProviderSaveSchema.properties.name,
     enabled: Type.Boolean(),
     models: Type.Array(customModelSchema, { minItems: 1, maxItems: 512 }),
+    contexts: Type.Optional(
+        Type.Record(customModelSchema.properties.id, discoveredModelContextSchema, {
+            maxProperties: 512,
+        }),
+    ),
 });
 const recordsSchema = Type.Record(Type.String({ pattern: "^custom-[a-f0-9]{24}$" }), recordSchema, {
     maxProperties: 64,
@@ -65,6 +80,10 @@ export function customProviderUrl(input: string): string {
 
 /** Discovery is read-only and only performed after explicit local user input. */
 export async function discoverCustomModels(input: CustomProviderDiscovery, signal?: AbortSignal) {
+    return { models: (await discoverCustomModelMetadata(input, signal)).models };
+}
+
+async function discoverCustomModelMetadata(input: CustomProviderDiscovery, signal?: AbortSignal) {
     const baseUrl = customProviderUrl(input.baseUrl);
     const timeout = AbortSignal.timeout(15_000);
     try {
@@ -107,6 +126,7 @@ export async function discoverCustomModels(input: CustomProviderDiscovery, signa
                     id: customModelSchema.properties.id,
                     name: Type.Optional(customModelSchema.properties.name),
                     reasoning: Type.Optional(Type.Unknown()),
+                    ...upstreamContextProperties,
                 }),
                 { maxItems: 512 },
             ),
@@ -133,7 +153,13 @@ export async function discoverCustomModels(input: CustomProviderDiscovery, signa
                 ];
             }),
         );
-        return { models: [...unique.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+        const contexts: Record<string, AgentModelContext> = Object.create(null);
+        for (const model of parsed.data) {
+            const context = discoveredModelContext(model);
+            if (context === undefined) delete contexts[model.id];
+            else contexts[model.id] = context;
+        }
+        return { models: [...unique.values()].sort((a, b) => a.id.localeCompare(b.id)), contexts };
     } catch (error) {
         if (error instanceof CustomProviderError) throw error;
         throw new CustomProviderError(
@@ -147,6 +173,10 @@ export async function discoverCustomModels(input: CustomProviderDiscovery, signa
 /** Config-owned private records; writes commit before publishing live routes. */
 export class CustomProviders {
     #records: Static<typeof recordsSchema> = {};
+    readonly #discoveredContexts = new Map<
+        string,
+        { expiresAt: number; contexts: Record<string, AgentModelContext> }
+    >();
     constructor(readonly path: string) {}
     async load(): Promise<void> {
         try {
@@ -158,6 +188,10 @@ export class CustomProviders {
             for (const entry of Object.values(value)) {
                 customProviderUrl(entry.baseUrl);
                 reasoningValidate(entry);
+                for (const context of Object.values(entry.contexts ?? {})) {
+                    if (context.autoCompactWindow >= context.contextWindow)
+                        throw new Error("Invalid saved context limits.");
+                }
             }
             this.#records = value;
         } catch (error) {
@@ -167,6 +201,53 @@ export class CustomProviders {
     }
     get ids(): readonly string[] {
         return Object.keys(this.#records);
+    }
+    async discover(input: CustomProviderDiscovery, signal?: AbortSignal) {
+        const result = await discoverCustomModelMetadata(input, signal);
+        const now = Date.now();
+        for (const [key, entry] of this.#discoveredContexts)
+            if (entry.expiresAt <= now) this.#discoveredContexts.delete(key);
+        const key = connectionKey(input);
+        this.#discoveredContexts.delete(key);
+        while (this.#discoveredContexts.size >= 64)
+            this.#discoveredContexts.delete(this.#discoveredContexts.keys().next().value!);
+        this.#discoveredContexts.set(key, {
+            expiresAt: now + 3_600_000,
+            contexts: result.contexts,
+        });
+        return { models: result.models };
+    }
+
+    #contextsFor(
+        input: CustomProviderDiscovery,
+        models: readonly CustomProviderSave["models"][number][],
+        previous?: RecordEntry,
+    ): Record<string, AgentModelContext> {
+        const cached = this.#discoveredContexts.get(connectionKey(input));
+        const remembered =
+            cached !== undefined && cached.expiresAt > Date.now()
+                ? cached.contexts
+                : previous !== undefined && connectionKey(previous) === connectionKey(input)
+                  ? previous.contexts
+                  : undefined;
+        return Object.fromEntries(
+            models.flatMap((model) => {
+                const context =
+                    remembered !== undefined && Object.hasOwn(remembered, model.id)
+                        ? remembered[model.id]
+                        : undefined;
+                return context === undefined ? [] : [[model.id, { ...context }]];
+            }),
+        );
+    }
+
+    modelContext(providerId: string, modelId: string): AgentModelContext | undefined {
+        const entry = this.#records[providerId];
+        const prefix = `${providerId}/`;
+        if (!entry || !modelId.startsWith(prefix)) return undefined;
+        const wireId = modelId.slice(prefix.length);
+        if (!entry.models.some((model) => model.id === wireId)) return undefined;
+        return modelContextFor(entry, wireId);
     }
     has(id: string): boolean {
         return this.#records[id] !== undefined;
@@ -201,6 +282,10 @@ export class CustomProviders {
     async update(id: string, input: CustomProviderUpdate): Promise<void> {
         const entry = this.#entry(id);
         const connection = this.connection(id, input);
+        const models =
+            input.models === undefined
+                ? entry.models
+                : [...new Map(input.models.map((m) => [m.id, m])).values()];
         if (
             Object.entries(this.#records).some(
                 ([otherId, other]) => otherId !== id && other.baseUrl === connection.baseUrl,
@@ -214,6 +299,7 @@ export class CustomProviders {
             [id]: {
                 ...entry,
                 ...connection,
+                contexts: this.#contextsFor(connection, models, entry),
                 ...(input.name === undefined ? {} : { name: input.name.trim() }),
                 ...(input.models === undefined
                     ? {}
@@ -235,6 +321,7 @@ export class CustomProviders {
         return Object.entries(this.#records).flatMap(([providerId, entry]) =>
             entry.models.map((m) => {
                 const reasoning = customModelReasoning(m);
+                const context = modelContextFor(entry, m.id);
                 return {
                     providerId,
                     id: `${providerId}/${m.id}`,
@@ -242,7 +329,10 @@ export class CustomProviders {
                     effortLevels: reasoning?.efforts ?? ["off" as const],
                     defaultEffort: reasoning?.defaultEffort ?? "off",
                     customReasoning: reasoning,
-                    contextWindow: null,
+                    contextWindow: context?.contextWindow ?? null,
+                    ...(context === undefined
+                        ? {}
+                        : { autoCompactWindow: context.autoCompactWindow }),
                     enabled: entry.enabled,
                 };
             }),
@@ -302,6 +392,11 @@ export class CustomProviders {
                 baseUrl,
                 apiKey: input.apiKey,
                 models,
+                contexts: this.#contextsFor(
+                    { baseUrl, apiKey: input.apiKey },
+                    models,
+                    this.#records[id],
+                ),
                 enabled: true,
                 ...(name === undefined ? {} : { name }),
             },
@@ -363,6 +458,22 @@ function reasoningValidate(entry: RecordEntry): void {
                 );
         }
     }
+}
+
+function connectionKey(input: CustomProviderDiscovery): string {
+    return createHash("sha256")
+        .update(customProviderUrl(input.baseUrl))
+        .update("\0")
+        .update(input.apiKey)
+        .digest("hex");
+}
+
+function modelContextFor(entry: RecordEntry, wireId: string): AgentModelContext | undefined {
+    const remembered =
+        entry.contexts !== undefined && Object.hasOwn(entry.contexts, wireId)
+            ? entry.contexts[wireId]
+            : undefined;
+    return remembered === undefined ? curatedCustomModelContext(wireId) : { ...remembered };
 }
 
 /** One resolution path shared by public Effort choices and actual wire parameters. */

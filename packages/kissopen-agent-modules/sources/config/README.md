@@ -102,9 +102,16 @@ configuration and would otherwise be handed the version separately.
 
 ## Custom model context budgets
 
-Custom OpenAI-compatible providers use a local 32,768-token context budget and a
-24,576-token automatic compaction trigger unless machine configuration overrides them.
-Edit the Agent's global `paths.globalConfigPath` (`kissopen.toml` under the public
+Custom OpenAI-compatible providers resolve context automatically. User-initiated model
+discovery remembers validated `context_window`, `context_length` or `max_context_length`
+metadata and output capacity; saving the selected models persists these limits privately.
+Existing connections without saved metadata use exact canonical or wire-model matches in
+the local curated catalog. Only completely unknown models retain the 32,768-token safety
+budget and 24,576-token automatic compaction trigger. Display names and model-family
+prefixes never imply a capacity, and restarting the Agent makes no discovery request.
+
+Manual overrides remain available. Edit the Agent's global `paths.globalConfigPath`
+(`kissopen.toml` under the public
 configuration directory beside its `.kissopen` home), then restart the Agent. Desktop
 and CLI connected to this Agent use the same limits. Existing configuration files
 are not overwritten with the starter template.
@@ -125,13 +132,17 @@ Each table must contain both integer fields. `context_window` accepts 8,000 thro
 10,000,000 tokens; `auto_compact_window` must be positive and strictly smaller.
 Confirm the endpoint's supported window and leave room for output and tool results.
 The setting controls local compaction, not the service's actual maximum or output limit.
-No capability is inferred from a model name, and model discovery does not change these limits.
+Upstream limits reserve declared output capacity and compact no later than 85% of the
+window. Exact curated fallbacks retain their curated compaction threshold. Changing a
+connection's endpoint or credentials invalidates its previously discovered capacity.
 
-An exact model override wins over the custom default; otherwise the conservative local
-budget applies. Runtime machine configuration takes precedence over global configuration
+An exact model override wins over the custom default, followed by discovered capacity,
+then the exact curated model context, then the unknown-model safety budget.
+Runtime machine configuration takes precedence over global configuration
 and replaces each complete pair, while retaining other model overrides. Project
 `kissopen.toml` cannot change these budgets. Explicit limits appear in the existing model
-catalog and usage fields; unconfigured custom models keep `contextWindow: null` in the catalog.
+catalog and usage fields. Automatically known limits appear in those same fields;
+only models whose limits remain unknown keep `contextWindow: null` in the catalog.
 
 ## The accounts
 

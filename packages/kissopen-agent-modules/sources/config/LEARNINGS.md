@@ -281,8 +281,8 @@ Requiring a manual reasoning declaration for every custom model made ordinary Ef
 unnecessarily technical. Resolve reasoning once in Config for both the public catalog and wire
 requests: explicit user override first (null forces service defaults), validated upstream
 `discoveredReasoning` second, exact curated OpenAI/DeepSeek wire ID third, service default otherwise.
-Never match a display name, family prefix or unlisted date suffix. Only reasoning is resolved;
-transport and context limits remain unchanged. Missing declarations now select automatic behavior,
+Never match a display name, family prefix or unlisted date suffix. Reasoning and context resolve
+independently; transport remains unchanged. Missing declarations now select automatic behavior,
 while existing explicit declarations are preserved. Discovery is bounded and user-initiated;
 startup uses saved metadata and the local curated catalog, with no inference probe or new request.
 
@@ -292,17 +292,29 @@ person edits that form, and saves only selected entries. Config owns `custom-pro
 beside runtime.toml, with atomic owner-only writes; startup reads that file without network
 discovery. Provider scans must not disable these explicit connections. IDs are namespaced while
 wire IDs remain unchanged. The shared Chat Completions implementation handles streaming, tools
-and compaction; no context or tool capability is inferred from names. Unknown limits remain
+and compaction; display names never imply context or tool capabilities. Unknown limits remain
 null in the catalog, with an explicit conservative 32K local budget and a 24K compaction trigger.
 Hardcoding that budget for every custom endpoint made long coding sessions compact too early.
 Machine `custom_model_context.default` and exact namespaced `custom_model_context.models` tables
 now accept complete `context_window` / `auto_compact_window` pairs. Per-model values win over the
 default, runtime pairs override global pairs without erasing other models, and project files
 cannot change token budgets. The threshold must be positive and below the bounded integer window.
-Only explicitly configured limits become known catalog values; missing limits retain the old
-budget. The shared Config answer drives both usage reporting and inference compaction, so Desktop
+Known upstream limits and exact curated model IDs now provide automatic context defaults.
+Explicit machine limits override both; completely unknown models retain the old budget.
+The shared Config answer drives both usage reporting and inference compaction, so Desktop
 and CLI cannot disagree. File edits take effect after Agent restart and never alter endpoint keys,
 model IDs, discovery, output ceilings, or built-in provider limits.
+
+Discarding `/models` capacity fields left every custom connection at 32K, even for known 1M
+models. User-initiated discovery now retains validated capacities in a bounded, expiring cache
+fingerprinted by endpoint and credential; an existing client's ordinary save payload persists
+only its selected models' limits in the private connection. No SDK field or startup request is
+needed. Upstream limits precede exact canonical/wire-ID catalog matches, and explicit machine
+overrides precede both. Reserve declared output capacity before the 85% compaction ceiling.
+Changing endpoint or credentials invalidates previous connection metadata. Private capacity
+maps must use own properties, so model IDs such as `constructor` and `__proto__` cannot inherit
+or overwrite object prototypes. Invalid metadata and unlisted aliases remain unknown rather
+than claiming the capacity of a similarly named model.
 An existing stateless session reopens its shared-protocol delegate on the next request when its
 private record changes, so key updates and model selections do not silently retain stale values.
 

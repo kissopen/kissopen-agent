@@ -36,7 +36,7 @@ import {
     type ConfiguredAgentModel,
 } from "./impl/agentCatalog.js";
 import { KissopenServedModels, type KissopenServedModel } from "./impl/kissopenServedModels.js";
-import { CustomProviders, discoverCustomModels } from "./impl/customProviders.js";
+import { CustomProviders } from "./impl/customProviders.js";
 import {
     configuredCustomModelContext,
     customModelContextInputSchema,
@@ -1528,7 +1528,7 @@ export class ConfigModule implements AgentModule {
         input: CustomProviderExistingDiscovery,
         signal?: AbortSignal,
     ) {
-        return await discoverCustomModels(this.#custom.connection(id, input), signal);
+        return await this.#custom.discover(this.#custom.connection(id, input), signal);
     }
     async updateCustomProvider(
         ctx: Context,
@@ -1553,7 +1553,7 @@ export class ConfigModule implements AgentModule {
         return this.#custom.name(id);
     }
     async discoverCustomProvider(input: CustomProviderDiscovery, signal?: AbortSignal) {
-        return await discoverCustomModels(input, signal);
+        return await this.#custom.discover(input, signal);
     }
     async saveCustomProvider(ctx: Context, input: CustomProviderSave): Promise<void> {
         await this.#runtimeLock.runInLock(ctx, async () => {
@@ -1700,10 +1700,11 @@ export class ConfigModule implements AgentModule {
         }
         catalog.push(
             ...this.#custom.catalog().map((m) => {
-                const context = configuredCustomModelContext(
-                    this.configuration.values.customModelContext,
-                    m.id,
-                );
+                const context =
+                    configuredCustomModelContext(
+                        this.configuration.values.customModelContext,
+                        m.id,
+                    ) ?? this.#custom.modelContext(m.providerId, m.id);
                 return {
                     ...m,
                     contextWindow: context?.contextWindow ?? null,
@@ -1727,7 +1728,9 @@ export class ConfigModule implements AgentModule {
                 ? (configuredCustomModelContext(
                       this.configuration.values.customModelContext,
                       modelId,
-                  ) ?? DEFAULT_CUSTOM_MODEL_CONTEXT)
+                  ) ??
+                  this.#custom.modelContext(providerId, modelId) ??
+                  DEFAULT_CUSTOM_MODEL_CONTEXT)
                 : agentModelContext(modelId, this.#served.models)
             : undefined;
     }
