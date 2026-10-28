@@ -156,8 +156,8 @@ importers:
         specifier: workspace:*
         version: link:../kissopen-agent-base
       '@kissopen/kissopen-agent-client':
-        specifier: workspace:*
-        version: link:../kissopen-agent-client
+        specifier: 0.0.68
+        version: 0.0.68
       '@kissopen/kissopen-agent-compute':
         specifier: workspace:*
         version: link:../kissopen-agent-compute
@@ -302,8 +302,8 @@ importers:
         specifier: workspace:*
         version: link:../kissopen-agent-base
       '@kissopen/kissopen-agent-client':
-        specifier: workspace:*
-        version: link:../kissopen-agent-client
+        specifier: 0.0.68
+        version: 0.0.68
       '@kissopen/kissopen-agent-compute':
         specifier: workspace:*
         version: link:../kissopen-agent-compute
@@ -345,8 +345,8 @@ importers:
         specifier: ^0.9.6
         version: 0.9.6
       '@kissopen/kissopen-agent-client':
-        specifier: workspace:*
-        version: link:../kissopen-agent-client
+        specifier: 0.0.68
+        version: 0.0.68
       '@kissopen/kissopen-agent-compute':
         specifier: workspace:*
         version: link:../kissopen-agent-compute
@@ -591,8 +591,8 @@ importers:
         specifier: ^0.9.6
         version: 0.9.6
       '@kissopen/kissopen-agent-client':
-        specifier: workspace:*
-        version: link:../kissopen-agent-client
+        specifier: 0.0.68
+        version: 0.0.68
       '@kissopen/kissopen-providers':
         specifier: workspace:*
         version: link:../kissopen-providers
@@ -1282,6 +1282,10 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@kissopen/kissopen-agent-client@0.0.68':
+    resolution: {integrity: sha512-Pi8CxKXebIJObka5e48okoZ4cLWUUakB7Po4vndKvDclm744CW53QcbqwXn/q3nVs/csHg4NL4wtK4whvXUgsg==}
+    engines: {node: '>=20'}
 
   '@libsql/client@0.17.4':
     resolution: {integrity: sha512-lYayFWasDV78A+TjlEhr6ubb3odBV6OHjb+wdp8VQcyWWAEIjuwbCHaraEUS4m4yWoo0BvZo96It4VdzZRmRWw==}
@@ -4683,6 +4687,10 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@js-sdsl/ordered-map@4.4.2': {}
+
+  '@kissopen/kissopen-agent-client@0.0.68':
+    dependencies:
+      '@sinclair/typebox': 0.34.49
 
   '@libsql/client@0.17.4(patch_hash=1c303fc50d92c6431131205e47ac5241931be2297e77dd776790c5b0fb169cd2)':
     dependencies:

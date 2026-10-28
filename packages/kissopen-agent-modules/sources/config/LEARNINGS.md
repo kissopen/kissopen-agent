@@ -1,5 +1,14 @@
 # Config module learnings
 
+## Compaction preferences are live machine state
+
+The context details slider saves percentages independently of model capacity discovery. Keep the
+generated `runtime.toml` preferences under Config's runtime lock; merge exact model overrides,
+validate the complete map before writing, and expose the same effective threshold to the catalog
+and the inference hook. Null resets inheritance without changing discovered windows or credentials.
+Project files cannot alter these machine preferences. Unknown models still advertise no capacity,
+while their known local compaction budget can be reported without claiming an upstream limit.
+
 ## Hosted message mode is not a user preference
 
 `kissopenMessageMode` applies the backend's default model/effort to hosted human submissions,

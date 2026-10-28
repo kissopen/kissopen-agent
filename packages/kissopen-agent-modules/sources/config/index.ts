@@ -1,5 +1,6 @@
 export {
     ConfigModule,
+    ContextCompactionError,
     kissopenAgentConfigSourceSchema,
     kissopenAgentConfigValuesSchema,
     kissopenAgentConfigurationInputSchema,

@@ -886,6 +886,9 @@ Model entries merge, never replace unrelated overrides. At most 512 model overri
 stored; IDs are 1–320 characters without control characters. Unknown model IDs are rejected
 when setting an override, but may be removed after a provider is deleted. Invalid requests
 return 400 without partially applying any settings.
+Send compaction preferences in their own patch, without other configuration groups; mixed
+patches return 400 before any changes. A single compaction patch may change both defaults
+and model overrides atomically.
 
 The effective compaction preference is the exact model override, then the global default,
 then the model's automatic threshold. A percentage produces

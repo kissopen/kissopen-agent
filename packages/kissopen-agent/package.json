@@ -48,7 +48,7 @@
     },
     "dependencies": {
         "@kissopen/kissopen-agent-base": "workspace:*",
-        "@kissopen/kissopen-agent-client": "workspace:*",
+        "@kissopen/kissopen-agent-client": "0.0.68",
         "@kissopen/kissopen-agent-compute": "workspace:*",
         "@kissopen/kissopen-agent-modules": "workspace:*",
         "@kissopen/kissopen-agent-supervisor": "workspace:*",

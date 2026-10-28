@@ -37,7 +37,7 @@
     },
     "dependencies": {
         "@ff-labs/fff-node": "^0.9.6",
-        "@kissopen/kissopen-agent-client": "workspace:*",
+        "@kissopen/kissopen-agent-client": "0.0.68",
         "@kissopen/kissopen-agent-compute": "workspace:*",
         "@kissopen/kissopen-providers": "workspace:*",
         "@libsql/client": "^0.17.4",

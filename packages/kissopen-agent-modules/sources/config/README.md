@@ -237,6 +237,14 @@ behind its back.
 
 ## What else this module answers
 
+Compaction preferences are machine settings shared by Desktop and CLI. The context card saves
+an exact model percentage through `PATCH /v0/config` (`contextCompaction.modelPercents`). Values
+from 10 through 90 apply at the next inference boundary without restarting. A null entry removes
+that model override; the global percentage is used next, or the automatic model threshold when
+the global preference is null. Config persists the merged preferences atomically in generated
+`runtime.toml`; project files cannot change them. Capacity discovery and explicit token windows
+remain independent of the percentage, so moving the slider never claims a larger model window.
+
 The same reasoning applies to anything else whose location or policy the configuration already
 settles. A module asks for the answer instead of being handed the path it would have read:
 

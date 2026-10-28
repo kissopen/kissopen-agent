@@ -65,6 +65,15 @@ import {
 } from "./RemoteConnectionConfig.js";
 import { connectionIdSchema, nodeNameSchema } from "@kissopen/kissopen-agent-client";
 import { resolveDefaultNodeName } from "./impl/resolveDefaultNodeName.js";
+import {
+    contextCompactionPercentSchema,
+    contextCompactionPatchSchema,
+    contextCompactionSchema,
+    type ContextCompaction,
+    type ContextCompactionPatch,
+} from "@kissopen/kissopen-agent-client";
+
+export class ContextCompactionError extends Error {}
 
 const MAX_PATH_LENGTH = 4_096;
 const MAX_CONFIG_STRING_LENGTH = 16_384;
@@ -418,6 +427,16 @@ const mcpInputSchema = Type.Record(
 const partialValuesSchema = Type.Object(
     {
         custom_model_context: Type.Optional(customModelContextInputSchema),
+        // Generated machine preferences; deliberately excluded from project configuration.
+        context_compaction: Type.Optional(
+            Type.Object(
+                {
+                    default_percent: Type.Optional(contextCompactionPercentSchema),
+                    model_percents: Type.Optional(contextCompactionSchema.properties.modelPercents),
+                },
+                { additionalProperties: false },
+            ),
+        ),
         skill_enablement: Type.Optional(
             Type.Record(Type.String({ minLength: 1, maxLength: 4096 }), Type.Boolean(), {
                 maxProperties: 10000,
@@ -1379,6 +1398,57 @@ export class ConfigModule implements AgentModule {
         return structuredClone(this.#runtimeValues.skill_enablement ?? {});
     }
 
+    get contextCompaction(): ContextCompaction {
+        const saved = this.#runtimeValues.context_compaction;
+        return {
+            defaultPercent: saved?.default_percent ?? null,
+            modelPercents: structuredClone(saved?.model_percents ?? {}),
+        };
+    }
+
+    /** Serialize merging and atomic persistence with other generated machine settings. */
+    async contextCompactionUpdate(ctx: Context, patch: ContextCompactionPatch): Promise<boolean> {
+        if (!Value.Check(contextCompactionPatchSchema, patch))
+            throw new ContextCompactionError("The context compaction preferences are invalid.");
+        return await this.#runtimeLock.runInLock(ctx, async () => {
+            const previous = this.contextCompaction;
+            const models = new Map(Object.entries(previous.modelPercents));
+            const known = new Set(this.catalog.map((model) => model.id));
+            for (const [id, percent] of Object.entries(patch.modelPercents ?? {})) {
+                if (percent === null) models.delete(id);
+                else {
+                    if (!known.has(id))
+                        throw new ContextCompactionError(`Model "${id}" is not configured.`);
+                    models.set(id, percent);
+                }
+            }
+            const preferences: ContextCompaction = {
+                defaultPercent:
+                    patch.defaultPercent === undefined
+                        ? previous.defaultPercent
+                        : patch.defaultPercent,
+                modelPercents: Object.fromEntries(
+                    [...models.entries()].sort(([a], [b]) => a.localeCompare(b)),
+                ),
+            };
+            if (!Value.Check(contextCompactionSchema, preferences))
+                throw new ContextCompactionError(
+                    "At most 512 model compaction overrides may be saved.",
+                );
+            if (JSON.stringify(preferences) === JSON.stringify(previous)) return false;
+            const next = structuredClone(this.#runtimeValues);
+            next.context_compaction = {
+                ...(preferences.defaultPercent === null
+                    ? {}
+                    : { default_percent: preferences.defaultPercent }),
+                model_percents: preferences.modelPercents,
+            };
+            await writeRuntimeConfigurationFile(this.configuration.paths.runtimeConfigPath, next);
+            this.#runtimeValues = next;
+            return true;
+        });
+    }
+
     /** Durable skills work writes the current committed preference snapshot, never old call arguments. */
     async writeRuntimeSkillEnablement(
         ctx: Context,
@@ -1715,7 +1785,12 @@ export class ConfigModule implements AgentModule {
                 };
             }),
         );
-        return catalog;
+        return catalog.map((model) => {
+            const context = this.#effectiveModelContext(model.providerId, model.id);
+            return context === undefined
+                ? model
+                : { ...model, autoCompactWindow: context.autoCompactWindow };
+        });
     }
 
     /** Effective context limits for one enabled provider/model route. */
@@ -1723,16 +1798,36 @@ export class ConfigModule implements AgentModule {
         const enabled = this.models.some(
             (model) => model.providerId === providerId && model.id === modelId,
         );
-        return enabled
-            ? this.#custom.has(providerId)
-                ? (configuredCustomModelContext(
-                      this.configuration.values.customModelContext,
-                      modelId,
-                  ) ??
-                  this.#custom.modelContext(providerId, modelId) ??
-                  DEFAULT_CUSTOM_MODEL_CONTEXT)
-                : agentModelContext(modelId, this.#served.models)
-            : undefined;
+        return enabled ? this.#effectiveModelContext(providerId, modelId) : undefined;
+    }
+
+    #effectiveModelContext(providerId: string, modelId: string): AgentModelContext | undefined {
+        const context = this.#custom.has(providerId)
+            ? (configuredCustomModelContext(
+                  this.configuration.values.customModelContext,
+                  modelId,
+              ) ??
+              this.#custom.modelContext(providerId, modelId) ??
+              DEFAULT_CUSTOM_MODEL_CONTEXT)
+            : agentModelContext(modelId, this.#served.models);
+        if (context === undefined) return undefined;
+        const saved = this.#runtimeValues.context_compaction;
+        const percent =
+            saved?.model_percents && Object.hasOwn(saved.model_percents, modelId)
+                ? saved.model_percents[modelId]
+                : saved?.default_percent;
+        return percent === undefined
+            ? context
+            : {
+                  contextWindow: context.contextWindow,
+                  autoCompactWindow: Math.max(
+                      1,
+                      Math.min(
+                          context.contextWindow - 1,
+                          Math.floor((context.contextWindow * percent) / 100),
+                      ),
+                  ),
+              };
     }
 
     /** The concrete Anthropic Bedrock transport used by every route behind this selection. */
@@ -2669,6 +2764,7 @@ export function parseKissopenAgentConfigToml(source: string): {
         unknownSettings.push(path);
     };
     const knownTopLevel = new Set([
+        "context_compaction",
         "custom_model_context",
         "skill_enablement",
         "api",
@@ -2713,6 +2809,9 @@ export function parseKissopenAgentConfigToml(source: string): {
             ? readBoolean(table.providers, "default_enable", "providers.default_enable")
             : undefined;
     const values = {
+        ...(table.context_compaction === undefined
+            ? {}
+            : { context_compaction: table.context_compaction }),
         ...(table.custom_model_context === undefined
             ? {}
             : { custom_model_context: table.custom_model_context }),
@@ -3508,6 +3607,7 @@ function inferProviderType(id: string, type: unknown): ProviderType {
 
 function withoutProjectMachineSettings(values: PartialValues): PartialValues {
     const {
+        context_compaction: _contextCompaction,
         custom_model_context: _customModelContext,
         skill_enablement: _skillEnablement,
         api: _api,

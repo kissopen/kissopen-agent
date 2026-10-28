@@ -13,14 +13,14 @@
         "test:watch": "vitest"
     },
     "dependencies": {
-        "@paralleldrive/cuid2": "^3.3.0",
-        "@sinclair/typebox": "^0.34.49",
         "@kissopen/kissopen-agent": "workspace:*",
         "@kissopen/kissopen-agent-base": "workspace:*",
-        "@kissopen/kissopen-agent-client": "workspace:*",
+        "@kissopen/kissopen-agent-client": "0.0.68",
         "@kissopen/kissopen-agent-compute": "workspace:*",
         "@kissopen/kissopen-agent-modules": "workspace:*",
         "@kissopen/kissopen-providers": "workspace:*",
+        "@paralleldrive/cuid2": "^3.3.0",
+        "@sinclair/typebox": "^0.34.49",
         "@steve.kite/stdlib": "0.0.12",
         "ws": "^8.21.1"
     },

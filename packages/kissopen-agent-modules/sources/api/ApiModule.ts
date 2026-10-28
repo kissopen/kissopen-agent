@@ -35,6 +35,7 @@ import {
     reorderConnectionRequestSchema,
     unarchiveBotRequestSchema,
     configPatchSchema,
+    contextCompactionPatchSchema,
     nodeConfigPatchSchema,
     providerVerificationRequestSchema,
     customProviderDiscoverySchema,
@@ -92,7 +93,7 @@ import {
     type Compaction,
 } from "../compactions/index.js";
 import { ComputeModule, type ComputeProcessEvent } from "../compute/index.js";
-import { ConfigModule } from "../config/index.js";
+import { ConfigModule, ContextCompactionError } from "../config/index.js";
 import { NodeModule } from "../node/index.js";
 import { CloudModule, CloudOperationError } from "../cloud/index.js";
 import { EventsModule, eventIdSchema, type AgentEvent } from "../events/index.js";
@@ -949,8 +950,30 @@ export class ApiModule implements AgentModule {
                     throw new ApiError(
                         409,
                         "conflict",
-                        "This daemon can only change provider enablement and its display name at runtime.",
+                        "This daemon can only change provider enablement, its display name and compaction preferences at runtime.",
                     );
+                }
+                if (body.contextCompaction !== undefined) {
+                    if (Object.keys(body).length !== 1)
+                        throw invalidRequest(
+                            "Send context compaction preferences in their own configuration patch.",
+                        );
+                    if (this.#team.enabled && teamUser(ctx)?.isOwner !== true)
+                        throw new ApiError(
+                            403,
+                            "forbidden",
+                            "Only the team owner can change compaction preferences.",
+                        );
+                    try {
+                        if (await this.#config.contextCompactionUpdate(ctx, body.contextCompaction))
+                            this.#journal.append("config.updated", {});
+                    } catch (error) {
+                        if (error instanceof ContextCompactionError)
+                            throw invalidRequest(error.message);
+                        throw error;
+                    }
+                    sendJson(response, 200, { config: await this.#sanitizedConfig(ctx) });
+                    return;
                 }
                 if (
                     body.node?.name !== undefined &&
@@ -6287,6 +6310,7 @@ export class ApiModule implements AgentModule {
         const defaultModel = this.#config.models[0] ?? this.#config.offeredModels[0];
         return {
             node: await this.#node.get(ctx),
+            contextCompaction: this.#config.contextCompaction,
             defaults: {
                 providerId: defaultModel?.providerId ?? values.defaults.providerId,
                 modelId: defaultModel?.id ?? values.defaults.modelId,
@@ -6736,6 +6760,7 @@ async function readJson(
 
 const runtimeConfigPatchSchema = Type.Object(
     {
+        contextCompaction: Type.Optional(contextCompactionPatchSchema),
         node: Type.Optional(nodeConfigPatchSchema),
         providers: Type.Optional(
             Type.Record(
