@@ -1,6 +1,6 @@
 {
     "name": "@kissopen/kissopen-agent-client",
-    "version": "0.0.66-preview.11",
+    "version": "0.0.67",
     "description": "Typed client for the Kissopen agent HTTP API.",
     "license": "MIT",
     "repository": {

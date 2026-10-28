@@ -870,6 +870,36 @@ Tokens, API keys, environment values, and paths to credential files are never re
 
 ### `PATCH /v0/config`
 
+#### Context compaction preferences
+
+`GET /v0/config` and desktop bootstrap may include optional
+`config.contextCompaction: { defaultPercent: number | null, modelPercents: { [modelId]: number } }`.
+Absence means this daemon does not support editable compaction preferences. A null default
+preserves each model's automatic threshold. Exact canonical or namespaced custom model IDs
+identify overrides; display names never identify models.
+
+`PATCH /v0/config` accepts an optional `contextCompaction` object with optional
+`defaultPercent: number | null` and `modelPercents: { [modelId]: number | null }`.
+Percentages are integers from 10 through 90. Omitting a field preserves it; a null default
+restores automatic model defaults, and a null model entry removes only that override.
+Model entries merge, never replace unrelated overrides. At most 512 model overrides are
+stored; IDs are 1–320 characters without control characters. Unknown model IDs are rejected
+when setting an override, but may be removed after a provider is deleted. Invalid requests
+return 400 without partially applying any settings.
+
+The effective compaction preference is the exact model override, then the global default,
+then the model's automatic threshold. A percentage produces
+`max(1, min(contextWindow - 1, floor(contextWindow * percent / 100)))` tokens. It changes
+neither the model's context capacity nor output budget, and never starts compaction concurrently
+with inference. It applies at the next ordinary inference boundary, including existing sessions.
+The same effective `autoCompactWindow` is returned in the model catalog and used by the daemon;
+the renderer must not fabricate or optimistically report a saved threshold.
+
+These machine preferences persist atomically across restart and are shared by Desktop and CLI;
+project configuration cannot override them. Successful changes use the existing full config
+response and `config.updated` event. Team callers require the same authority as other config
+mutations. Older clients may omit the new object; new clients hide editing on older daemons.
+
 Requests a runtime settings change. The body is validated against the mutable subset:
 
 ```json
@@ -920,6 +950,16 @@ Only the team owner can use these endpoints in team mode.
 Models use namespaced internal IDs and their exact discovered ID on the wire. They use the
 shared Chat Completions streaming/tool/compaction implementation. Unknown context sizes are reported as null; the local safety budget is 32K tokens
 (automatic compaction at 24K), not a claim about the upstream model's maximum context.
+Context limits resolve automatically: an explicit machine `custom_model_context` override wins,
+then validated upstream capacity remembered during user-initiated model discovery, then an exact
+canonical or wire-model match in the local curated context catalog. Display names, prefixes and
+unlisted suffixes never imply a capacity. Discovery may retain a bounded, credential-fingerprinted
+in-memory capacity cache; saving or editing a connection persists only the selected models' limits
+in its private record. Upstream context metadata does not add fields to discovery or save requests.
+Changing the endpoint or key invalidates capacity remembered for the previous connection.
+Compaction reserves the declared output capacity and occurs no later than 85% of a declared window;
+an exact curated fallback retains that model's curated compaction threshold. Invalid or absent
+metadata falls back to the exact local catalog or the unknown-model safety budget.
 
 Custom providers appear in `GET /v0/config` with optional `name` and `custom: true`, no secret
 fields. Existing provider enablement changes also persist for custom connections. No discovery
@@ -932,8 +972,8 @@ When `reasoning` is absent, resolve automatically: use a validated `discoveredRe
 the upstream first (including null for service default), then exactly match a curated
 OpenAI/DeepSeek Chat Completions model ID, otherwise use service default. Only exact canonical
 IDs and their curated wire IDs match; never match prefixes, family names, display names or
-unlisted date/version suffixes. Automatic matching supplies reasoning only, not context limits,
-tools, credentials, provider identity or API transport. Curated providers remain unchanged.
+unlisted date/version suffixes. Automatic matching supplies reasoning and context limits only,
+not tools, credentials, provider identity or API transport. Curated providers remain unchanged.
 `discoveredReasoning` is an optional nullable declaration with the same shape, stored with the
 selected model without a new discovery request on restart. An explicit override always wins.
 `mode: "openai"` sends `reasoning_effort` verbatim, mapping internal `off` to wire `none`.

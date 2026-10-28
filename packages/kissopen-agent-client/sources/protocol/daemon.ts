@@ -378,6 +378,37 @@ export const daemonSettingsSchema = Type.Object({
 });
 export type DaemonSettings = Static<typeof daemonSettingsSchema>;
 
+/** Durable machine-wide compaction preferences; omitted by older daemons. */
+export const contextCompactionPercentSchema = Type.Integer({ minimum: 10, maximum: 90 });
+const contextCompactionModelIdSchema = Type.String({
+    pattern: "^[^\\u0000-\\u001f\\u007f]{1,320}$",
+});
+export const contextCompactionSchema = Type.Object(
+    {
+        defaultPercent: Nullable(contextCompactionPercentSchema),
+        modelPercents: Type.Record(contextCompactionModelIdSchema, contextCompactionPercentSchema, {
+            maxProperties: 512,
+            additionalProperties: false,
+        }),
+    },
+    { additionalProperties: false },
+);
+export type ContextCompaction = Static<typeof contextCompactionSchema>;
+export const contextCompactionPatchSchema = Type.Partial(
+    Type.Object(
+        {
+            defaultPercent: Nullable(contextCompactionPercentSchema),
+            modelPercents: Type.Record(
+                contextCompactionModelIdSchema,
+                Nullable(contextCompactionPercentSchema),
+                { maxProperties: 512, additionalProperties: false },
+            ),
+        },
+        { additionalProperties: false },
+    ),
+);
+export type ContextCompactionPatch = Static<typeof contextCompactionPatchSchema>;
+
 /** Terminal color assignments. */
 export const themeConfigSchema = Type.Object({
     accent: Type.String(),
@@ -403,6 +434,7 @@ export type WorkspaceConfig = Static<typeof workspaceConfigSchema>;
 
 /** The daemon's effective configuration, with every secret removed. */
 export const daemonConfigSchema = Type.Object({
+    contextCompaction: Type.Optional(contextCompactionSchema),
     /** Installation name and avatar. Absent on older compatible daemons. */
     node: Type.Optional(nodeConfigSchema),
     defaults: configDefaultsSchema,
@@ -434,6 +466,7 @@ export type ConfigResponse = Static<typeof configResponseSchema>;
  */
 export const configPatchSchema = Type.Partial(
     Type.Object({
+        contextCompaction: contextCompactionPatchSchema,
         defaults: Type.Partial(configDefaultsSchema),
         features: Type.Partial(configFeaturesSchema),
         network: Type.Partial(networkConfigSchema),
